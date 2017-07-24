@@ -1,5 +1,5 @@
 # -*-coding:utf-8 -*-
-# data can be viewed in 1.png:
+# data can be viewed in assets/1.png:
 # 0 0 0 0 1 1 1 0
 # 0 0 0 1 1 1 0 1
 # 0 0 0 1 1 0 1 1
@@ -11,14 +11,14 @@
 
 # result:
 # no remove, (3, 1)-robust
-# when remove node1, (3, 1)-robust
-# when remove node2, (2, 1)-robust
-# when remove node3, (2, 2)-robust
-# when remove node4, (3, 1)-robust
-# when remove node5, (2, 2)-robust
-# when remove node6, (2, 2)-robust
-# when remove node7, (2, 2)-robust
-# when remove node7, (2, 1)-robust
+# if remove node1, (3, 1)-robust
+# if remove node2, (2, 1)-robust
+# if remove node3, (2, 2)-robust
+# if remove node4, (3, 1)-robust
+# if remove node5, (2, 2)-robust
+# if remove node6, (2, 2)-robust
+# if remove node7, (2, 2)-robust
+# if remove node8, (2, 1)-robust
 
 import numpy as np
 import itertools
