@@ -140,7 +140,7 @@ def determine_partial_robust(A, i):
 
 
 if __name__ == '__main__':
-    with open('data3.in', 'r') as f:
+    with open('./data/data3.in', 'r') as f:
         A = []
         B = []
         count = 0

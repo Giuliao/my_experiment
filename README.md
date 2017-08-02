@@ -1,1 +1,21 @@
 # my_experiment
+- these code are reimplemented from the papers that writen by Heath J. LeBlanc and so on
+## 1.CheckRobustness.py
+- the input file is data/data3.in
+- this algo has implemented how to judge the robustness of a network
+
+## 2.consensus_algo.py
+- superclass: NetworkAlgo
+- subclass: ArcpAlgo
+- subclass: LcpAlgo(ToDo)
+- subclass: RarcpAlgo(ToDo)
+- subclass: MedianConsensusAlgo(Todo)
+
+## 3.old_codes
+- this directory includes the codes I wrote before, 
+because the structure of the Graph(or network) is not same so I decide to rewrite :-(
+
+
+
+## Next
+- I will reconstruct the checkrobustness.py
