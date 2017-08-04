@@ -12,12 +12,12 @@
 # result:
 # no remove, (3, 1)-robust
 # if remove node1, (3, 1)-robust
-# if remove node2, (2, 1)-robust
-# if remove node3, (2, 2)-robust
+# if remove node2, (2, 3)-robust
+# if remove node3, (2, 7)-robust
 # if remove node4, (3, 1)-robust
 # if remove node5, (2, 2)-robust
 # if remove node6, (2, 2)-robust
-# if remove node7, (2, 2)-robust
+# if remove node7, (2, 3)-robust
 # if remove node8, (2, 1)-robust
 
 import numpy as np
@@ -80,11 +80,11 @@ def check_robustness(A, r, s):
     return isRSRobust, None, None
 
 
-def calc_in_degree(A):
-    for i in range(A.shape[0]):
+def calc_in_degree(local_A):
+    for i in range(local_A.shape[0]):
         count = 0
-        for j in range(A.shape[0]):
-            if A[j][i] !=0:
+        for j in range(local_A.shape[0]):
+            if local_A[j][i] !=0:
                 count += 1
         yield count
 
@@ -104,21 +104,21 @@ def determine_robustness2(A):
                 isRSRoubst = robust_holds(A, S1, S2, r, s)
                 if not isRSRoubst and s > 0:
                     s -= 1
-            while (not isRSRoubst) and r > 0:
-                while (not isRSRoubst) and s > 0:
-                    isRSRoubst = robust_holds(A, S1, S2, r, s)
+                while (not isRSRoubst) and r > 0:
+                    while (not isRSRoubst) and s > 0:
+                        isRSRoubst = robust_holds(A, S1, S2, r, s)
+                        if not isRSRoubst:
+                            s -= 1
                     if not isRSRoubst:
-                        s -= 1
-                if not isRSRoubst:
-                    r -= 1
-                    s = n
-            if r == 0:
-                return r, s
+                        r -= 1
+                        s = n
+                if r == 0:
+                    return r, s
     return r, s
 
 
 def determine_robustness(A):
-    return determine_partial_robust(A, None)
+    return determine_partial_robust(A, 0)
 
 
 def determine_partial_robust(A, i):
@@ -129,14 +129,14 @@ def determine_partial_robust(A, i):
         r, s
     """
 
-    # A = np.delete(np.delete(A, i-1, 0), i-1, 1)
+    A = np.delete(np.delete(A, i-1, 0), i-1, 1)  # !!!this part is different from the paper
     # print A
     r = min(calc_in_degree(A))
     r = min(r, math.ceil(A.shape[0] * 1.0 / 2.0))
     s = A.shape[0]
     n = A.shape[0]  # the number of vertex
 
-    flag = 1 if not i else 0 # set the upper bound of the K set
+    flag = 1 if i else 0  # set the upper bound of the K set
 
     # partition the set with k nodes, k at least 2 because of for 1-robust
     for k in range(2, n + flag):
@@ -147,42 +147,47 @@ def determine_partial_robust(A, i):
                 isRSRoubst = robust_holds(A, S1, S2, r, s)
                 if not isRSRoubst and s > 0:
                     s -= 1
-            while (not isRSRoubst) and r > 0:
-                while (not isRSRoubst) and s > 0:
-                    isRSRoubst = robust_holds(A, S1, S2, r, s)
+                while (not isRSRoubst) and r > 0:
+                    while (not isRSRoubst) and s > 0:
+                        isRSRoubst = robust_holds(A, S1, S2, r, s)
+                        if not isRSRoubst:
+                            s -= 1
                     if not isRSRoubst:
-                        s -= 1
-                if not isRSRoubst:
-                    r -= 1
-                    s = n
-            if r == 0:
-                return r, s
+                        r -= 1
+                        s = n
+                if r == 0:
+                    return r, s
     return r, s
 
 
 if __name__ == '__main__':
     import consensus_algo
-    test = consensus_algo.ArcpAlgo(10)
-    test.show_network()
-    print determine_robustness(test.adjMatrix)
-    test.set_malicious_node({1:3.0, 5:2.0})
-    test.run_arcp(2, 30)
-    # with open('./data/data3.in', 'r') as f:
-    #     A = []
-    #     B = []
-    #     count = 0
-    #     for line in f.readlines():
-    #         if count < 8:
-    #             A.append(line.strip().split(' '))
-    #         else:
-    #             B.append(line.strip().split(' '))
-    #         count += 1
-    #     # print check_robustness(np.array(A, dtype=np.int), 3, 3)
-    #     print np.array(B, dtype=np.int)
-    #     # print np.array(A, dtype=np.int)
-    #     print determine_robustness2(np.array(A, dtype=np.int))
-    #     print determine_robustness(np.array(A, dtype=np.int))
+    mm = consensus_algo.NetworkAlgo.init_network(file_name="data/data.in")
+    # print '0 ->', determine_robustness(test.adjMatrix)
+    # L = []
+    # for i in range(1, 9):
+    #     t1, t2 = determine_partial_robust(test.adjMatrix, i)
+    #
+    #     L.append((t1, t2, i))
+    #     print i, '->',(t1, t2)
+    #
+    # L = sorted(L, key=lambda x:x[0:2], reverse=True)
+    # print L
+    # x1, x2 = L[-2: ]
+    # test.set_malicious_node({x1[2]: 3.0, x2[2]: 2.5})
+    # test.run_arcp(2, 100)
+    # test.show_network()
+    # test.show_consensus(2, 100)
+    for i in range(1, 9):
+        print determine_partial_robust(mm, i)
 
+    with open('data/data3.in', 'r') as f:
+        A = []
+        for line in f.readlines():
+             A.append(line.strip().split(' '))
+        print np.array(A, dtype=np.int)
+        for i in range(1, 9):
+             print determine_partial_robust(np.array(A, dtype=np.int), i)
 
 
 

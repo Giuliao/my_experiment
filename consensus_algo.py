@@ -25,7 +25,7 @@ class NetworkAlgo(object):
         self.malicious_node = []
 
     @staticmethod
-    def init_network(vertex_num, file_name):
+    def init_network(vertex_num=5, file_name=None):
         """ init the network by reading a file
         
         :param file_name: 
@@ -118,9 +118,10 @@ class NetworkAlgo(object):
         # nx.draw_networkx_edges(self.G, pos)
         # print self.adjMatrix
         nx.draw(self.G, pos)
-        # plt.savefig('./assets/result.png')
+        plt.savefig('./assets/result1.png')
+        # plt.show(block=False)
+        plt.close()
 
-        plt.show(block=False)
 
 
 class ArcpAlgo(NetworkAlgo):
@@ -158,7 +159,7 @@ class ArcpAlgo(NetworkAlgo):
 
         i = 0
         iRangeMin = 0
-        while i < f_local:
+        while i < f_local and len(neighbors) > i:
             if neighbors[i] >= v_self_value:
                 break
             i += 1
@@ -166,7 +167,7 @@ class ArcpAlgo(NetworkAlgo):
 
         i = 0
         iRangeMax = len(neighbors)
-        while i < f_local:
+        while i < f_local and iRangeMax > 0:
             if neighbors[iRangeMax - 1] <= v_self_value:
                 break
             i += 1
@@ -181,14 +182,19 @@ class ArcpAlgo(NetworkAlgo):
             for v in self.G.nodes():
                 self.arcp(v, f_local, it)
         print 'ok arcp'
-        self.show_network()
-        self.show_consensus(f_local, iter_time)
+        print self.adjMatrix
+        print '-'*100
+        for y in self.G.nodes():
+            print str(y)+':', self.G.node[y]['value']
+        # self.show_network()
+        # self.show_consensus(f_local, iter_time)
 
     def show_consensus(self, f_local, iter_time):
         x = range(iter_time+1)
         import time
         plt.figure(time.time())
         plt.title('arcp with f-local=%d' % f_local)
+        plt.xlim((0,100))
         for y in self.G.nodes():
             plt.plot(x, self.G.node[y]['value'])
         plt.show()
