@@ -26,7 +26,15 @@ import math
 
 
 def robust_holds(A, S1, S2, r, s):
-    isRSRobust = False
+    """
+     :param A: the adjMatrix
+     :param S1: the subset of vertex set
+     :param S2: the subset of verex set
+     :param r:  (r, s)-robust
+     :param s:  (r, s)-robust
+     :return: 
+         boolean
+     """
 
     def calc_reachable(S):
         ss = 0
@@ -43,6 +51,7 @@ def robust_holds(A, S1, S2, r, s):
                 ss += 1
         return ss
 
+    isRSRobust = False
     if calc_reachable(S1) == len(S1) \
             or calc_reachable(S2) == len(S2) \
             or calc_reachable(S1) + calc_reachable(S2) >= s:
@@ -79,8 +88,12 @@ def calc_in_degree(A):
                 count += 1
         yield count
 
-# the func is the same as the determine_robustness
+
 def determine_robustness2(A):
+    """the func is the same as determine_robustness
+    :param A: adjmatrix
+    :return: 
+    """
     r = min(calc_in_degree(A))
     r = min(r, math.ceil(A.shape[0]*1.0/2.0))
     s = A.shape[0]
@@ -108,8 +121,16 @@ def determine_robustness(A):
     return determine_partial_robust(A, None)
 
 
-# i is more than 0
 def determine_partial_robust(A, i):
+    """
+    :param A: adjmatrix
+    :param i: i is more than 0, and i is the excepted node
+    :return: 
+        r, s
+    """
+
+    # A = np.delete(np.delete(A, i-1, 0), i-1, 1)
+    # print A
     r = min(calc_in_degree(A))
     r = min(r, math.ceil(A.shape[0] * 1.0 / 2.0))
     s = A.shape[0]
@@ -140,21 +161,27 @@ def determine_partial_robust(A, i):
 
 
 if __name__ == '__main__':
-    with open('./data/data3.in', 'r') as f:
-        A = []
-        B = []
-        count = 0
-        for line in f.readlines():
-            if count < 8:
-                A.append(line.strip().split(' '))
-            else:
-                B.append(line.strip().split(' '))
-            count += 1
-        # print check_robustness(np.array(A, dtype=np.int), 3, 3)
-        print np.array(B, dtype=np.int)
-        print np.array(A, dtype=np.int)
-        print determine_robustness2(np.array(B, dtype=np.int))
-        print determine_robustness(np.array(B, dtype=np.int))
+    import consensus_algo
+    test = consensus_algo.ArcpAlgo(10)
+    test.show_network()
+    print determine_robustness(test.adjMatrix)
+    test.set_malicious_node({1:3.0, 5:2.0})
+    test.run_arcp(2, 30)
+    # with open('./data/data3.in', 'r') as f:
+    #     A = []
+    #     B = []
+    #     count = 0
+    #     for line in f.readlines():
+    #         if count < 8:
+    #             A.append(line.strip().split(' '))
+    #         else:
+    #             B.append(line.strip().split(' '))
+    #         count += 1
+    #     # print check_robustness(np.array(A, dtype=np.int), 3, 3)
+    #     print np.array(B, dtype=np.int)
+    #     # print np.array(A, dtype=np.int)
+    #     print determine_robustness2(np.array(A, dtype=np.int))
+    #     print determine_robustness(np.array(A, dtype=np.int))
 
 
 
