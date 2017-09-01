@@ -25,7 +25,7 @@
     
 ## 实验过程
 - 解决图的随机生成
-    * 确保图为有向无环图，参考了[[1]](##reference)中的代码
+    * 确保图为有向无环图，参考了[[1]](#reference)中的代码
     * 优化算法时引发的思考：
         + r-robust和连通性的关系，强连通图的(r，s)-robust是否为最大：
             
@@ -33,13 +33,13 @@
             
         + (r, s)-robustness的定义依然没有很好的理解，s的取值到底如何限定：
         
-            按照文献[[2]](##reference)中对于(r, s)-robustness的定义,s的上限即为顶点数。
-            再通过剖析文献[[3]](##reference)中的robust_holds算法可以知道,(r, s)-robustness
+            按照文献[[2]](#reference)中对于(r, s)-robustness的定义,s的上限即为顶点数。
+            再通过剖析文献[[3]](#reference)中的robust_holds算法可以知道,(r, s)-robustness
             中的s可以大于子集中的顶点数。
             
         + (r, 0)-robustness是否存在：
             
-            可以说这对于任意(r, s)-robustness都成立。但是已知当r>=1时，通过[[3]](##reference)中
+            可以说这对于任意(r, s)-robustness都成立。但是已知当r>=1时，通过[[3]](#reference)中
             算法产生的s一定是>=1的。
            
     * 随机生成的图是否有重复: 
@@ -50,7 +50,7 @@
     * 0-robust问题（最后结论：输出中将不包含r=0或s=0的组合）
         + 0-robust: 
             
-            根据文献[[2]](##reference)中对于r-robustness的定义，作者提到可以称只包含一个节点的图为0-robust或者1-robust(?)
+            根据文献[[2]](#reference)中对于r-robustness的定义，作者提到可以称只包含一个节点的图为0-robust或者1-robust(?)
         
         + 一个含有2个或2个以上节点的图是否一定满足(1, 1)-robustness:
         
