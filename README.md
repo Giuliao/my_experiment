@@ -1,3 +1,4 @@
+![TEST](./assets/result1.png)
 # my_experiment
 - these code are reimplemented from the papers that writen by Heath J. LeBlanc and so on
 ## 1.CheckRobustness.py
@@ -15,7 +16,5 @@
 - this directory includes the codes I wrote before, 
 because the structure of the Graph(or network) is not same so I decide to rewrite :-(
 
-
-
-## Next
-- I will reconstruct the checkrobustness.py
+## 4.tranin_data_generate.py
+- how i generate the data and the results are in data dir(r_1_train_data.npy...)
