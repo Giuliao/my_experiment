@@ -38,11 +38,28 @@ class NetworkAlgo(object):
             local_adjMatrix
         """
         local_adjMatrix = None
-        if not file_name:   # init by file
-            local_adjMatrix = np.random.randint(2, size=(vertex_num, vertex_num))
-            for i in range(vertex_num):
-                local_adjMatrix[i][i] = 0
-        else:               # init by random
+        if not file_name:
+            # init by random
+            local_list = np.random.permutation(vertex_num)
+            local_adjMatrix = np.zeros([vertex_num, vertex_num], dtype=np.int)
+
+            for index, var in enumerate(local_list):
+                if index == vertex_num - 1:
+                    break
+                local_adjMatrix[local_list[index]][local_list[index+1]] = 1
+
+            m = np.random.randint(1, vertex_num*vertex_num+1)  # control the density of the matrix
+            for i in range(m):
+                p1 = np.random.randint(0, vertex_num)
+                p2 = np.random.randint(0, vertex_num)
+                while p1 == p2:
+                    p2 = np.random.randint(0, vertex_num)
+                x = local_list[p1]
+                y = local_list[p2]
+                local_adjMatrix[x][y] = 1
+
+        else:
+            # init by file
             with open(file_name, 'r') as fd:
                 for line in fd.readlines():
                     tt = line.split(' ')
@@ -94,6 +111,15 @@ class NetworkAlgo(object):
                     local_G.node[int(tt[0])]['value'] = [float(tt[1])]
         return True
 
+    @staticmethod
+    def write_adjmatrix_to_file(local_adjmatrix, out_file="./data/data.out"):
+        """
+        :param local_adjmatrix: 
+        :param out_file: 
+        :return: 
+        """
+        np.savetxt(out_file, local_adjmatrix)
+
     def set_malicious_node(self, kwargs):
         for k, v in kwargs.iteritems():
             self.G.node[k]['value'][0] = v
@@ -123,7 +149,6 @@ class NetworkAlgo(object):
         plt.close()
 
 
-
 class ArcpAlgo(NetworkAlgo):
 
     def __init__(self, vertex_num=5, network_file=None, vertex_value_file=None):
@@ -133,7 +158,6 @@ class ArcpAlgo(NetworkAlgo):
         :param vertex_value_file: 
         """
         super(ArcpAlgo, self).__init__(vertex_num, network_file, vertex_value_file)
-
 
     def arcp(self, v, f_local, iter_time):
 
@@ -244,10 +268,13 @@ class McaAlgo(NetworkAlgo):
 
 def main():
 
-    test = ArcpAlgo(20)
-    test.set_malicious_node({2: 2.0})
-    test.run_arcp(2, 100)
-
+    # test = ArcpAlgo(10)
+    # test.set_malicious_node({2: 2.0})
+    # # test.run_arcp(2, 100)
+    # test.write_to_file(test.adjMatrix)
+    x = np.loadtxt("data.out",dtype=np.int)
+    print x.shape
+    print np.product(x, x.transpose())
     # test2 = McaAlgo(20)
     # test2.set_malicious_node({2:3.0})
     # test2.run_median_consensus_algo(100)

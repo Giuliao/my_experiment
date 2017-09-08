@@ -128,15 +128,16 @@ def determine_partial_robust(A, i):
     :return: 
         r, s
     """
-
-    A = np.delete(np.delete(A, i-1, 0), i-1, 1)  # !!!this part is different from the paper
+    flag = 1    # set the upper bound of the K set
+    if i:
+        A = np.delete(np.delete(A, i-1, 0), i-1, 1)  # !!!this part is different from the paper
+        flag = 0
     # print A
     r = min(calc_in_degree(A))
-    r = min(r, math.ceil(A.shape[0] * 1.0 / 2.0))
+    r = min(r, int(math.ceil(A.shape[0] * 1.0 / 2.0)))
     s = A.shape[0]
     n = A.shape[0]  # the number of vertex
 
-    flag = 1 if i else 0  # set the upper bound of the K set
 
     # partition the set with k nodes, k at least 2 because of for 1-robust
     for k in range(2, n + flag):
@@ -162,32 +163,19 @@ def determine_partial_robust(A, i):
 
 if __name__ == '__main__':
     import consensus_algo
-    mm = consensus_algo.NetworkAlgo.init_network(file_name="data/data.in")
-    # print '0 ->', determine_robustness(test.adjMatrix)
-    # L = []
-    # for i in range(1, 9):
-    #     t1, t2 = determine_partial_robust(test.adjMatrix, i)
-    #
-    #     L.append((t1, t2, i))
-    #     print i, '->',(t1, t2)
-    #
-    # L = sorted(L, key=lambda x:x[0:2], reverse=True)
-    # print L
-    # x1, x2 = L[-2: ]
-    # test.set_malicious_node({x1[2]: 3.0, x2[2]: 2.5})
-    # test.run_arcp(2, 100)
-    # test.show_network()
-    # test.show_consensus(2, 100)
-    for i in range(1, 9):
-        print determine_partial_robust(mm, i)
+    mm = consensus_algo.NetworkAlgo(network_file='./data/data3.in')
 
-    with open('data/data3.in', 'r') as f:
-        A = []
-        for line in f.readlines():
-             A.append(line.strip().split(' '))
-        print np.array(A, dtype=np.int)
-        for i in range(1, 9):
-             print determine_partial_robust(np.array(A, dtype=np.int), i)
+    # mm.show_network()
+
+    print determine_robustness(mm.adjMatrix)
+    #
+    # with open('data/data3.in', 'r') as f:
+    #     A = []
+    #     for line in f.readlines():
+    #          A.append(line.strip().split(' '))
+    #     print np.array(A, dtype=np.int)
+    #     for i in range(1, 9):
+    #          print determine_partial_robust(np.array(A, dtype=np.int), i)
 
 
 
