@@ -14,7 +14,7 @@
 
 ## 3.old_codes
 - this directory includes the codes I wrote before, 
-because the structure of the Graph(or network) is not same so I decide to rewrite :-(
+because the structure of the Graph(or network) is not the same so I decide to rewrite :-(
 
 ## 4.tranin_data_generate.py
 - how i generate the data and the results are in data dir(r_1_train_data.csv...)
