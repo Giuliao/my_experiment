@@ -1,6 +1,6 @@
 ![TEST](./assets/result1.png)
 # my_experiment
-- these code are reimplemented from the papers that writen by Heath J. LeBlanc and so on
+- these codes are reimplemented from the papers that writen by Heath J. LeBlanc and so on
 ## 1.CheckRobustness.py
 - the input file is data/data3.in
 - this algo has implemented how to judge the robustness of a network
@@ -17,4 +17,4 @@
 because the structure of the Graph(or network) is not same so I decide to rewrite :-(
 
 ## 4.tranin_data_generate.py
-- how i generate the data and the results are in data dir(r_1_train_data.npy...)
+- how i generate the data and the results are in data dir(r_1_train_data.csv...)
