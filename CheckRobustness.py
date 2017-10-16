@@ -19,7 +19,7 @@
 # if remove node6, (2, 2)-robust
 # if remove node7, (2, 3)-robust
 # if remove node8, (2, 1)-robust
-
+from __future__ import print_function
 import numpy as np
 import itertools
 import math
@@ -163,11 +163,18 @@ def determine_partial_robust(A, i):
 
 if __name__ == '__main__':
     import consensus_algo
-    mm = consensus_algo.NetworkAlgo(network_file='./data/data3.in')
 
-    # mm.show_network()
+    # while 1:
+    #     mm = consensus_algo.NetworkAlgo(network_file='./data/data.in')
+    #     x1, x2 = determine_robustness(mm.adjMatrix)
+    #     if x1 == 2 and x2 == 2:
+    #         mm.show_network()
+    #         print(mm.adjMatrix)
+    #         break
+    mm = consensus_algo.NetworkAlgo(vertex_num=7)
+    print(determine_robustness(mm.adjMatrix))
+    mm.show_network()
 
-    print determine_robustness(mm.adjMatrix)
     #
     # with open('data/data3.in', 'r') as f:
     #     A = []
