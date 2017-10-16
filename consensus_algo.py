@@ -1,6 +1,8 @@
 # -*-coding:utf-8-*-
-
-
+# reference:
+# [1]py2 compatible with py3, http://blog.csdn.net/u012151283/article/details/58049151
+from __future__ import print_function
+from __future__ import division
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -139,12 +141,10 @@ class NetworkAlgo(object):
             self.G.node[v]['state'] = str(v)
 
         node_labels = nx.get_node_attributes(self.G, 'state')
-        pos = nx.spring_layout(self.G)
+        pos = nx.circular_layout(self.G)
         nx.draw_networkx_labels(self.G, pos, node_labels=node_labels)
-        # nx.draw_networkx_edges(self.G, pos)
-        # print self.adjMatrix
         nx.draw(self.G, pos)
-        plt.savefig('./assets/result1.png')
+        plt.savefig('./assets/result2.png')
         # plt.show(block=False)
         plt.close()
 
@@ -205,11 +205,11 @@ class ArcpAlgo(NetworkAlgo):
         for it in range(iter_time):
             for v in self.G.nodes():
                 self.arcp(v, f_local, it)
-        print 'ok arcp'
-        print self.adjMatrix
-        print '-'*100
+        print('ok arcp')
+        print(self.adjMatrix)
+        print('-'*100)
         for y in self.G.nodes():
-            print str(y)+':', self.G.node[y]['value']
+            print(str(y)+':', self.G.node[y]['value'])
         # self.show_network()
         # self.show_consensus(f_local, iter_time)
 
@@ -249,7 +249,7 @@ class McaAlgo(NetworkAlgo):
             for v in self.G.nodes():
                 self.median_consensus_algo(v, it)
 
-        print "Ok mac"
+        print("Ok mac")
         self.show_network()
         self.show_consensus(iter_time)
 
@@ -272,12 +272,12 @@ def main():
     # test.set_malicious_node({2: 2.0})
     # # test.run_arcp(2, 100)
     # test.write_to_file(test.adjMatrix)
-    x = np.loadtxt("data.out",dtype=np.int)
-    print x.shape
-    print np.product(x, x.transpose())
-    # test2 = McaAlgo(20)
-    # test2.set_malicious_node({2:3.0})
-    # test2.run_median_consensus_algo(100)
+    # x = np.loadtxt("data.out",dtype=np.int)
+    # print x.shape
+    # print np.product(x, x.transpose())
+    test2 = McaAlgo(20)
+    test2.set_malicious_node({2:3.0})
+    test2.run_median_consensus_algo(100)
 
 if __name__ == '__main__':
     main()
