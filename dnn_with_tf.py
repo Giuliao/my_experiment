@@ -7,7 +7,7 @@
 # [3] cnn,
 # http://www.jianshu.com/p/e2f62043d02b
 
-
+from __future__ import print_function
 import tensorflow as tf
 import pandas as pd
 import numpy as np
@@ -18,13 +18,19 @@ file_name_list = ["/Users/wangguang/PycharmProjects/my_experiment/data/r_1_train
                   "/Users/wangguang/PycharmProjects/my_experiment/data/r_2_train_data_new.csv",
                   "/Users/wangguang/PycharmProjects/my_experiment/data/r_3_train_data_new.csv",
                   "/Users/wangguang/PycharmProjects/my_experiment/data/r_4_train_data_new.csv",
-                  "/Users/wangguang/PycharmProjects/my_experiment/data/r_5_train_data_new.csv"
-                  ]
+                  "/Users/wangguang/PycharmProjects/my_experiment/data/r_5_train_data_new.csv"]
 
 
 n_nodes_hl1 = 500
 n_nodes_hl2 = 500
 n_nodes_hl3 = 500
+n_nodes_hl4 = 500
+n_nodes_hl5 = 500
+n_nodes_hl6 = 500
+n_nodes_hl7 = 300
+n_nodes_hl8 = 200
+n_nodes_hl9 = 200
+n_nodes_hl10 = 100
 n_nodes_input = 100
 
 n_classes = 5
@@ -34,6 +40,7 @@ with tf.name_scope('input'):
     x = tf.placeholder(tf.float32, [None, n_nodes_input])
     y = tf.placeholder(tf.float32)
     keep_prob = tf.placeholder(tf.float32)
+
 
 def read_from_csv_list():
 
@@ -89,7 +96,7 @@ def variable_summaries(var):
 
 def conv2d(x, W):
     # stride [1, x_movement, y_movement, 1]
-    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='VALID')
 
 
 def max_pool_2x2(x):
@@ -126,13 +133,12 @@ def nn_layer(input_tensor, dim, layer_name, act=tf.nn.relu, cnn=False):
 
 def neural_network_model(data):
 
-    l1 = nn_layer(data, [n_nodes_input, n_nodes_hl1], 'layer1')
-
+    l1 = nn_layer(data, [1000, n_nodes_hl1], 'layer1')
     l2 = nn_layer(l1, [n_nodes_hl1, n_nodes_hl2], 'layer2')
-
     l3 = nn_layer(l2, [n_nodes_hl2, n_nodes_hl3], 'layer3')
-
-    output = nn_layer(l3, [n_nodes_hl3, n_classes], 'outlayer', tf.identity)
+    l4 = nn_layer(l3, [n_nodes_hl3, n_nodes_hl4], 'layer4')
+    l5 = nn_layer(l4, [n_nodes_hl4, n_nodes_hl5], 'layer5')
+    output = nn_layer(l5, [n_nodes_hl5, n_classes], 'outlayer', tf.identity)
 
     return output
 
@@ -141,16 +147,17 @@ def convolution_network_model(xs):
 
     x_image = tf.reshape(xs, [-1, 10, 10, 1])
     h_conv1 = nn_layer(x_image, [5, 5, 1, 32], 'conv1_layer', cnn=True)
-    h_pool1 = max_pool_2x2(h_conv1)
+    # h_pool1 = max_pool_2x2(h_conv1)
 
-    h_conv2 = nn_layer(h_pool1, [5, 5, 32, 64], 'conv2_layer', cnn=True)
-    h_pool2 = max_pool_2x2(h_conv2)
+    h_conv2 = nn_layer(h_conv1, [3, 3, 32, 64], 'conv2_layer', cnn=True)
+    # h_pool2 = max_pool_2x2(h_conv2)
+    h_conv3 = nn_layer(h_conv2, [2, 2, 64, 128], 'conv3_layer', cnn=True)
 
-    h_pool2_flat = tf.reshape(h_pool2, [-1, 3*3*64])
-    h_fc1 = nn_layer(h_pool2_flat, [3*3*64, 1024], 'fully_connceted')
+    h_conv3_flat = tf.reshape(h_conv3, [-1, 3*3*128])
+    h_fc1 = nn_layer(h_conv3_flat, [3*3*128, 1024], 'fully_connceted')
     h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)  # what is dropout???
 
-    prediction = nn_layer(h_fc1_drop, [1024, n_classes], 'output_layer', act=tf.identity)
+    prediction = nn_layer(h_fc1_drop, [1024, 1000], 'output_layer', act=tf.identity)
 
     return prediction
 
@@ -158,6 +165,7 @@ def convolution_network_model(xs):
 def train_neural_network(x):
     with tf.name_scope('Model'):
         prediction = convolution_network_model(x)
+        prediction = neural_network_model(prediction)
 
     with tf.name_scope('Loss'):
         cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=y))
@@ -173,34 +181,39 @@ def train_neural_network(x):
 
     merged_summary_op = tf.summary.merge_all()
 
-    hm_epochs = 70
+    hm_epochs = 100
+    total_acc = 0
     # saver = tf.train.Saver()
     train_X, train_Y, test_X, test_Y = read_from_csv_list()
     with tf.Session() as sess:
 
-        train_writer = tf.summary.FileWriter(path_to_log+'cnn_train', sess.graph)
-        test_writer = tf.summary.FileWriter(path_to_log+'cnn_test')
+       # train_writer = tf.summary.FileWriter(path_to_log+'cnn_train', sess.graph)
+       # test_writer = tf.summary.FileWriter(path_to_log+'cnn_test')
         sess.run(tf.global_variables_initializer())
 
         for epoch in range(hm_epochs):
             epoch_loss = 0
             i = 0
+
             while i < len(train_X):
                 start = i
                 end = i + batch_size
                 batch_x = train_X[start: end]
                 batch_y = train_Y[start: end]
-                _, c, summary = sess.run([optimizer, cost, merged_summary_op], feed_dict={x: batch_x, y: batch_y, keep_prob: 0.5})
-                train_writer.add_summary(summary, epoch*10+i)
+                _, c = sess.run([optimizer, cost], feed_dict={x: batch_x, y: batch_y, keep_prob: 0.5})
+                # train_writer.add_summary(summary, epoch*10+i)
                 epoch_loss += c
                 i += batch_size
-
-            acc, summary = sess.run([accuracy, merged_summary_op], feed_dict={x: test_X, y: test_Y, keep_prob: 0.5})
-            test_writer.add_summary(summary, epoch)
-            print 'Epoch', epoch+1, 'completed out of', hm_epochs, 'loss', epoch_loss
-            print 'accracy:', acc
-        train_writer.close()
-        test_writer.close()
+            # acc2 = sess.run([accuracy], feed_dict={x: batch_x, y: batch_y, keep_prob: 0.5})
+            # print 'train accuracy', acc2
+            acc = sess.run([accuracy], feed_dict={x: test_X, y: test_Y, keep_prob: 0.5})
+            total_acc += acc[0]
+           # test_writer.add_summary(summary, epoch)
+            print('Epoch', epoch+1, 'completed out of', hm_epochs, 'loss', epoch_loss)
+            print('accracy: %.5f'%acc[0])
+      #  train_writer.close()
+      #  test_writer.close()
+        print('average accuracy: %.5f'% (total_acc / hm_epochs))
         # print 'Accuracy:', accuracy.eval({x: test_X, y: test_Y})
         # saver.save(sess, "./logs/1/model.cpkt")
 

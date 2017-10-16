@@ -1,6 +1,6 @@
 from __future__ import print_function
 import consensus_algo
-import CheckRobstness
+import CheckRobustness
 import numpy as np
 import pandas as pd
 import time
@@ -31,7 +31,7 @@ def main():
             else:
                 l2.append(adjmatrix.tolist())
 
-            y = CheckRobstness.determine_robustness(adjmatrix)
+            y = CheckRobustness.determine_robustness(adjmatrix)
 
             if y[0] == 3 and count_r3 != 0:
                 x = np.column_stack((adjmatrix.reshape((1, adjmatrix.shape[0]**2)), [local_dict[y]]))
