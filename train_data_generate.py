@@ -1,30 +1,40 @@
 from __future__ import print_function
+from __future__ import division
 import consensus_algo
 import CheckRobustness
 import numpy as np
 import pandas as pd
 import time
+import math
 
 
 def main():
-    ll_r3 = np.array(range(100)).reshape((1, 101))
-    ll_r2 = np.array(range(100)).reshape((1, 101))
-    ll_r1 = np.array(range(100)).reshape((1, 101))
+    const_node = 6
+    const_combine = int(math.ceil(const_node/2))*const_node
+    ll_r3 = pd.DataFrame()
+    ll_r2 = pd.DataFrame()
+    ll_r1 = pd.DataFrame()
+
     l2 = []
+
     local_dict = {}
+    count_s = {}
+
     count = 1
-    for i in range(1, 6):
-        for j in range(1, 11):
+    for i in range(1, int(math.ceil(const_node/2))+1):
+        for j in range(1, const_node+1):
             local_dict[(i, j)] = count
+            count_s[count] = 300
             count += 1
 
-    count_r1 = 10000
-    count_r2 = 10000
-    count_r3 = 10000
+    count_r1 = 1800
+    count_r2 = 1800
+    count_r3 = 1800
+
     start = time.time()
     try:
         while count_r1 or count_r2 or count_r3:
-            adjmatrix = consensus_algo.NetworkAlgo.init_network(vertex_num=10)
+            adjmatrix = consensus_algo.NetworkAlgo.init_network(vertex_num=const_node)
 
             if adjmatrix.tolist() in l2:
                 continue
@@ -32,33 +42,45 @@ def main():
                 l2.append(adjmatrix.tolist())
 
             y = CheckRobustness.determine_robustness(adjmatrix)
-
+            tmp_adjmatrix = (adjmatrix.reshape([1, adjmatrix.shape[0]**2]).tolist())[0]
+            local_label = [0 for i in range(const_combine)]
             if y[0] == 3 and count_r3 != 0:
-                x = np.column_stack((adjmatrix.reshape((1, adjmatrix.shape[0]**2)), [local_dict[y]]))
-                np.concatenate()
-                count_r3 -= 1
-                print("count_r3 = %d" % count_r3)
+                if count_s[local_dict[y]] > 0:
+                    count_s[local_dict[y]] -= 1
+                    local_label[local_dict[y]-1] = 1
+                    tmp_adjmatrix.extend(local_label)
+                    ll_r3 = pd.concat([ll_r3, pd.DataFrame(tmp_adjmatrix).transpose()])
+                    count_r3 -= 1
+
+                    print("count_r3 = %d" % count_r3)
             elif y[0] == 2 and count_r2 != 0:
-                ll_r2.append((x, local_dict[y]))
-                count_r2 -= 1
-                print("count_r2 = %d" % count_r2)
+                if count_s[local_dict[y]] > 0:
+                    count_s[local_dict[y]] -= 1
+                    local_label[local_dict[y]-1] = 1
+                    tmp_adjmatrix.extend(local_label)
+                    ll_r2 = pd.concat([ll_r2, pd.DataFrame(tmp_adjmatrix).transpose()])
+                    count_r2 -= 1
+                    print("count_r2 = %d" % count_r2)
             elif y[0] == 1 and count_r1 != 0:
-                ll_r1.append((x, local_dict[y]))
-                count_r1 -= 1
-                print("count_r1 = %d" % count_r1)
+                if count_s[local_dict[y]] > 0:
+                    count_s[local_dict[y]] -= 1
+                    local_label[local_dict[y] - 1] = 1
+                    tmp_adjmatrix.extend(local_label)
+                    ll_r1 = pd.concat([ll_r1, pd.DataFrame(tmp_adjmatrix).transpose()])
+                    count_r1 -= 1
+                    print("count_r1 = %d" % count_r1)
             else:
                 continue
 
-            print(adjmatrix)
-            print(y)
+            # print(adjmatrix)
+            # print(y)
 
     except Exception as e:
         print(str(e))
     finally:
-        np.save("./data/r_3_train_data", np.array(ll_r3))
-        np.save("./data/r_2_train_data", np.array(ll_r2))
-        np.save("./data/r_1_train_data", np.array(ll_r1))
-
+        ll_r3.to_csv('./data/node_6/r_3_train_data.csv')
+        ll_r2.to_csv('./data/node_6/r_2_train_data.csv')
+        ll_r1.to_csv('./data/node_6/r_1_train_data.csv')
         print("epoch %f" % (time.time()-start))
 
 
@@ -112,4 +134,4 @@ def set_r_labels(file_name, local_index):
 
 
 if __name__ == '__main__':
-    adjmatrix = consensus_algo.NetworkAlgo.init_network(vertex_num=5)
+    main()
