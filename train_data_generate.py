@@ -289,14 +289,15 @@ def undirected_data_generate(node_num, file_name):
         df = pd.DataFrame(columns=features)
         is_used = None
 
-    p = 0.59
+    p = 0.4
     pool = None
+    print('init finish..')
 
     try:
         while 1:
-            pool = multiprocessing.Pool(6, init_worker)
+            pool = multiprocessing.Pool(8, init_worker)
             result = []
-            for k in range(32):
+            for k in range(16):
                 adjmatrix = consensus_algo.NetworkAlgo(node_num, p).adjMatrix
                 if is_used is not None and any((adjmatrix.reshape((-1, node_num**2)) == x).all() for x in is_used):
                     # print('continue...')
@@ -308,10 +309,11 @@ def undirected_data_generate(node_num, file_name):
                         is_used = np.vstack((is_used, adjmatrix.reshape((-1, node_num**2))))
                 # print(k)
                 result.append(pool.apply_async(CheckRobustness.determine_robustness_multi_process, (adjmatrix,)))
+            
 
             pool.close()
             pool.join()
-
+	    
             for r in result:
                 tt, r_s = r.get()
 
@@ -324,22 +326,34 @@ def undirected_data_generate(node_num, file_name):
                             r_s_is_count[rr_s] = 1
                             count += 1
                         continue
-                    local_dict[rr_s] += 1
+                    local_dict[rr_s] += 1       
                 else:
-                    local_dict[rr_s] = 1
+                    local_dict[rr_s] = 1      
+
                 df = df.append(tt.join(pd.DataFrame(np.array(r_s, dtype=np.int).reshape(-1, 2), columns=['r', 's'])))
             print_dict(local_dict)
             print(count)
             print('*'*75)
+            
             del pool
             del result
 
-            if 3 <= count < 5:
-                p = 0.61
-            elif 5 <= count < 7:
-                p = 0.63
+            if count == 1:
+                p = 0.41
+	    elif count == 2:
+		p = 0.42
+            elif count == 3:
+                p = 0.42
+	    elif count == 4:
+		p = 0.46
+	    elif count == 5:
+		p = 0.49
+	    elif count == 6:
+                p = 0.49
+            elif count == 7:
+                p = 0.5
             elif count == 8:
-                p = 0.71
+                p = 0.51
 	    elif count == 9:
 		1/0
 
@@ -355,4 +369,4 @@ def undirected_data_generate(node_num, file_name):
         print('finished, time:', time.time()-start_time)
 
 if __name__ == '__main__':
-    undirected_data_generate(10, 'r_3')
+    undirected_data_generate(10, 'r_1')
