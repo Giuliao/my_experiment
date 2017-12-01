@@ -21,6 +21,24 @@ file_name_list = ["/Users/wangguang/PycharmProjects/my_experiment/data/r_1_train
                   "/Users/wangguang/PycharmProjects/my_experiment/data/r_5_train_data_new.csv"]
 
 
+
+# file_name_list = ["/Users/wangguang/PycharmProjects/my_experiment/data/r_1_train_data.csv",
+#                   "/Users/wangguang/PycharmProjects/my_experiment/data/r_2_train_data.csv",
+#                   "/Users/wangguang/PycharmProjects/my_experiment/data/r_3_train_data.csv",
+#                   "/Users/wangguang/PycharmProjects/my_experiment/data/r_4_train_data.csv",
+#                   "/Users/wangguang/PycharmProjects/my_experiment/data/r_5_train_data.csv"]
+
+# file_name_list = ["/Users/wangguang/PycharmProjects/my_experiment/data/node_6/r_1_train_data.csv",
+#                   "/Users/wangguang/PycharmProjects/my_experiment/data/node_6/r_2_train_data.csv",
+#                   "/Users/wangguang/PycharmProjects/my_experiment/data/node_6/r_3_train_data.csv"]
+
+# file_name_list = ["/Users/wangguang/PycharmProjects/my_experiment/data/node_6/r_1_train_data_new.csv",
+#                   "/Users/wangguang/PycharmProjects/my_experiment/data/node_6/r_2_train_data_new.csv",
+#                   "/Users/wangguang/PycharmProjects/my_experiment/data/node_6/r_3_train_data_new.csv"]
+
+# file_name_list = ["./data/r_5_representaion.csv"]
+
+
 n_nodes_hl1 = 500
 n_nodes_hl2 = 500
 n_nodes_hl3 = 500
@@ -34,7 +52,7 @@ n_nodes_hl10 = 100
 n_nodes_input = 100
 
 n_classes = 5
-batch_size = 100
+batch_size = 80
 
 with tf.name_scope('input'):
     x = tf.placeholder(tf.float32, [None, n_nodes_input])
@@ -45,18 +63,18 @@ with tf.name_scope('input'):
 def read_from_csv_list():
 
     pd_ll = []
-
+    upper_bound = 2000
     for local_file in file_name_list:
         pd_ll.append(pd.read_csv(local_file, header=0, index_col=0))
 
     df = pd.concat(pd_ll)
     df = df.sample(frac=1, axis=0) # shuffle
-    train_X = np.array(df.iloc[: 4000, : -n_classes].values, dtype=np.float)
-    train_Y = np.array(df.iloc[: 4000, -n_classes:].values, dtype=np.int)
+    train_X = np.array(df.iloc[: upper_bound, : -n_classes].values, dtype=np.float)
+    train_Y = np.array(df.iloc[: upper_bound, -n_classes:].values, dtype=np.int)
     # train_Y = train_Y.reshape(train_Y.shape[0], 1)
 
-    test_X = np.array(df.iloc[4000:, : -n_classes].values, dtype=np.float)
-    test_Y = np.array(df.iloc[4000:, -n_classes:].values, dtype=np.int)
+    test_X = np.array(df.iloc[upper_bound:, : -n_classes].values, dtype=np.float)
+    test_Y = np.array(df.iloc[upper_bound:, -n_classes:].values, dtype=np.int)
     # test_Y = test_Y.reshape(test_Y.shape[0], 50)
 
     return train_X, train_Y, test_X, test_Y
@@ -133,12 +151,10 @@ def nn_layer(input_tensor, dim, layer_name, act=tf.nn.relu, cnn=False):
 
 def neural_network_model(data):
 
-    l1 = nn_layer(data, [1000, n_nodes_hl1], 'layer1')
+    l1 = nn_layer(data, [n_nodes_input, n_nodes_hl1], 'layer1')
     l2 = nn_layer(l1, [n_nodes_hl1, n_nodes_hl2], 'layer2')
     l3 = nn_layer(l2, [n_nodes_hl2, n_nodes_hl3], 'layer3')
-    l4 = nn_layer(l3, [n_nodes_hl3, n_nodes_hl4], 'layer4')
-    l5 = nn_layer(l4, [n_nodes_hl4, n_nodes_hl5], 'layer5')
-    output = nn_layer(l5, [n_nodes_hl5, n_classes], 'outlayer', tf.identity)
+    output = nn_layer(l3, [n_nodes_hl3, n_classes], 'outlayer', tf.identity)
 
     return output
 
@@ -164,15 +180,15 @@ def convolution_network_model(xs):
 
 def train_neural_network(x):
     with tf.name_scope('Model'):
-        prediction = convolution_network_model(x)
-        prediction = neural_network_model(prediction)
+        # prediction = convolution_network_model(x)
+        prediction = neural_network_model(x)
 
     with tf.name_scope('Loss'):
         cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=y))
     tf.summary.scalar("loss", cost)
 
     with tf.name_scope('Optimizer'):
-        optimizer = tf.train.AdamOptimizer().minimize(cost)
+        optimizer = tf.train.AdamOptimizer(0.01).minimize(cost)
     # optimizer = tf.train.GradientDescentOptimizer(0.01).minimize(cost)
     with tf.name_scope('Accuracy'):
         correct = tf.equal(tf.argmax(prediction, 1), tf.argmax(y, 1))
@@ -181,42 +197,52 @@ def train_neural_network(x):
 
     merged_summary_op = tf.summary.merge_all()
 
-    hm_epochs = 100
+    hm_epochs = 1000
     total_acc = 0
-    # saver = tf.train.Saver()
+    saver = tf.train.Saver()
     train_X, train_Y, test_X, test_Y = read_from_csv_list()
     with tf.Session() as sess:
-
-       # train_writer = tf.summary.FileWriter(path_to_log+'cnn_train', sess.graph)
-       # test_writer = tf.summary.FileWriter(path_to_log+'cnn_test')
+        train_writer = tf.summary.FileWriter(path_to_log+'10_dnn_train', sess.graph)
+        test_writer = tf.summary.FileWriter(path_to_log+'10_dnn_test')
         sess.run(tf.global_variables_initializer())
-
-        for epoch in range(hm_epochs):
+        j = 0
+        for step in range(hm_epochs):
             epoch_loss = 0
             i = 0
+
 
             while i < len(train_X):
                 start = i
                 end = i + batch_size
                 batch_x = train_X[start: end]
                 batch_y = train_Y[start: end]
-                _, c = sess.run([optimizer, cost], feed_dict={x: batch_x, y: batch_y, keep_prob: 0.5})
-                # train_writer.add_summary(summary, epoch*10+i)
+                _, c, summary = sess.run([optimizer, cost, merged_summary_op], feed_dict={x: batch_x, y: batch_y, keep_prob: 0.5})
+                j += 1
                 epoch_loss += c
                 i += batch_size
+                train_writer.add_summary(summary, j)
+
             # acc2 = sess.run([accuracy], feed_dict={x: batch_x, y: batch_y, keep_prob: 0.5})
             # print 'train accuracy', acc2
-            acc = sess.run([accuracy], feed_dict={x: test_X, y: test_Y, keep_prob: 0.5})
-            total_acc += acc[0]
-           # test_writer.add_summary(summary, epoch)
-            print('Epoch', epoch+1, 'completed out of', hm_epochs, 'loss', epoch_loss)
-            print('accracy: %.5f'%acc[0])
-      #  train_writer.close()
-      #  test_writer.close()
-        print('average accuracy: %.5f'% (total_acc / hm_epochs))
+            acc, summary, predic = sess.run([accuracy, merged_summary_op, prediction], feed_dict={x: test_X, y: test_Y, keep_prob: 0.5})
+            #print(predic.shape, test_Y.shape)
+            #print(np.argmax(predic, 1), '=>', np.argmax(test_Y, 1))
+            total_acc += acc
+            test_writer.add_summary(summary, step)
+            #print('Epoch', step+1, 'completed out of', hm_epochs, 'loss', epoch_loss)
+            #print('accuracy:', acc)
+        train_writer.close()
+        test_writer.close()
+    print('average accuracy: %.5f' % (total_acc / hm_epochs))
         # print 'Accuracy:', accuracy.eval({x: test_X, y: test_Y})
-        # saver.save(sess, "./logs/1/model.cpkt")
+    saver.save(sess, "./logs/1/model.cpkt")
 
 if __name__ == '__main__':
    train_neural_network(x)
+
+    # x, y, z, w = read_from_csv_list()
+    # print(np.argmax(y, 1).shape)
+    # for i in range(y.shape[0]):
+    #     print(y[i])
+    #     print(np.argmax(y))
 
