@@ -54,7 +54,7 @@ class NeuralNetwork:
 
     def init_session(self, con):
         tf_config = tf.ConfigProto()
-        tf_config.gpu_options.allow_growth = True
+        tf_config.gpu_options.allow_growth = False
         self.sess = tf.Session(config=tf_config)
 
         self.train_writer = tf.summary.FileWriter(con.train_path_to_log, self.sess.graph)
@@ -188,8 +188,9 @@ class NeuralNetwork:
         with tf.name_scope('Optimizer'):
             self.optimizer, self.global_step = self._make_optimizer()
 
-        with tf.name_scope('Epoch_optimizer'):
-            self.epoch_optimizer, self.epoch_step = self._make_optimizer()
+	with tf.device('/cpu:0'):
+            with tf.name_scope('Epoch_optimizer'):
+                self.epoch_optimizer, self.epoch_step = self._make_optimizer()
 
         with tf.name_scope('Accuracy'):
             self.acc = self.get_accuracy()
