@@ -1,5 +1,6 @@
 from __future__ import print_function
 from __future__ import division
+from __future__ import absolute_import
 import consensus_algo
 import CheckRobustness
 import numpy as np
@@ -309,11 +310,10 @@ def undirected_data_generate(node_num, file_name):
                         is_used = np.vstack((is_used, adjmatrix.reshape((-1, node_num**2))))
                 # print(k)
                 result.append(pool.apply_async(CheckRobustness.determine_robustness_multi_process, (adjmatrix,)))
-            
 
             pool.close()
             pool.join()
-	    
+
             for r in result:
                 tt, r_s = r.get()
 
@@ -340,22 +340,22 @@ def undirected_data_generate(node_num, file_name):
 
             if count == 1:
                 p = 0.41
-	    elif count == 2:
-		p = 0.42
+            elif count == 2:
+                p = 0.42
             elif count == 3:
                 p = 0.42
-	    elif count == 4:
-		p = 0.46
-	    elif count == 5:
-		p = 0.49
-	    elif count == 6:
+            elif count == 4:
+                p = 0.46
+            elif count == 5:
+                p = 0.49
+            elif count == 6:
                 p = 0.49
             elif count == 7:
                 p = 0.5
             elif count == 8:
                 p = 0.51
-	    elif count == 9:
-		1/0
+            elif count == 9:
+                1/0
 
     except Exception as e:
         print(traceback.print_exc())

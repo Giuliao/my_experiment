@@ -3,6 +3,7 @@
 # [1]py2 compatible with py3, http://blog.csdn.net/u012151283/article/details/58049151
 from __future__ import print_function
 from __future__ import division
+from __future__ import absolute_import
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt

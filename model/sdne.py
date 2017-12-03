@@ -2,11 +2,12 @@ from __future__ import print_function
 from __future__ import division
 from rbm import *
 import numpy as np
+import basic_model
 
 
-class SDNE(basic):
+class SDNE(basic_model.Basic):
     def __init__(self, config):
-        basic.__init__(self)
+        basic_model.Basic.__init__(self)
 
         self.is_variable_init = False
         self.config = config
@@ -84,7 +85,8 @@ class SDNE(basic):
             return tf.reduce_sum(tf.pow(Y1 - Y2, 2))
 
         def get_1st_loss(H, adj_mini_batch):
-            D = tf.diag(tf.reduce_sum(adj_mini_batch, 1))
+
+            D = tf.diag(tf.reduce_sum(adj_mini_batch, 0))
             L = D - adj_mini_batch  ## L is laplation-matriX
             return 2 * tf.trace(tf.matmul(tf.matmul(tf.transpose(H), L), H))
 
