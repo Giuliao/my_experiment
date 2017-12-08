@@ -10,7 +10,6 @@ import pandas as pd
 
 
 class NeuralNetwork:
-
     def __init__(self, con):
 
         self.struct = con.structure
@@ -41,9 +40,9 @@ class NeuralNetwork:
         self.target = None
         self.keep_prob = None
         self.epoch_step = None
-	self.increment_epoch_step = None     
+        self.increment_epoch_step = None
         self.global_step = None
-	self.increment_global_step = None 
+        self.increment_global_step = None
         self.optimizer = None
         self.loss = None
         self.loss1 = None
@@ -55,10 +54,10 @@ class NeuralNetwork:
 
     def init_session(self, con):
         # tf_config = tf.ConfigProto()
-	# false meams fully occupied 
+        # false meams fully occupied
         # tf_config.gpu_options.allow_growth = False
         # self.sess = tf.Session(config=tf_config)
-	self.sess = tf.Session()
+        self.sess = tf.Session()
         self.train_writer = tf.summary.FileWriter(con.train_path_to_log, self.sess.graph)
         self.test_writer = tf.summary.FileWriter(con.test_path_to_log)
 
@@ -72,7 +71,7 @@ class NeuralNetwork:
             self.sess.run(tf.global_variables_initializer())
 
     def _make_optimizer(self, loss):
-        local_step = tf.Variable(0, trainable=False, name='local_step') 
+        local_step = tf.Variable(0, trainable=False, name='local_step')
         with tf.name_scope('Optimizer'):
             learning_rate = tf.train.exponential_decay(
                 learning_rate=self.learning_rate,
@@ -92,10 +91,11 @@ class NeuralNetwork:
             ret = tf.add_n([tf.nn.l2_loss(w) for w in weight.values()])
             ret = ret + tf.add_n([tf.nn.l2_loss(b) for b in biases.values()])
             return ret
-	with tf.name_scope('loss1'):
-            loss1 = tf.reduce_sum(tf.pow(self.out[:,0]-self.target[:,0], 2))+get_reg_loss(self.W, self.b)
+
+        with tf.name_scope('loss1'):
+            loss1 = tf.reduce_sum(tf.pow(self.out[:, 0] - self.target[:, 0], 2)) + get_reg_loss(self.W, self.b)
         with tf.name_scope('loss2'):
-            loss2 = tf.reduce_sum(tf.pow(self.out[:,1]-self.target[:,1], 2))+get_reg_loss(self.W, self.b)
+            loss2 = tf.reduce_sum(tf.pow(self.out[:, 1] - self.target[:, 1], 2)) + get_reg_loss(self.W, self.b)
 
         return loss1, loss2
 
@@ -183,9 +183,9 @@ class NeuralNetwork:
         self.input = tf.placeholder(tf.float32, [None, self.input_size], name='input')
         self.target = tf.placeholder(tf.float32, [None, self.n_classes], name='labels')
         self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
-        self.epoch_step = tf.Variable(0, trainable=False, name="epoch_step") 
-        self.global_step = tf.Variable(0, trainable=False, name="global_step") 
-     
+        self.epoch_step = tf.Variable(0, trainable=False, name="epoch_step")
+        self.global_step = tf.Variable(0, trainable=False, name="global_step")
+
         with tf.name_scope('Model'):
             self.out = make_computing_graph(self.input)
 
@@ -195,23 +195,23 @@ class NeuralNetwork:
         loss1_summ = tf.summary.scalar("loss_s", self.loss1)
 
         test_summ.append(loss1_summ)
-	test_summ.append(loss_summ)
+        test_summ.append(loss_summ)
 
         with tf.name_scope('Optimizer'):
-            self.optimizer  = self._make_optimizer(self.loss)
+            self.optimizer = self._make_optimizer(self.loss)
 
-	with tf.name_scope('Optimizer1'):
+        with tf.name_scope('Optimizer1'):
             self.optimizer1 = self._make_optimizer(self.loss1)
 
         with tf.name_scope('Accuracy'):
             self.acc = self.get_accuracy()
         acc_r_summ = tf.summary.scalar("acc_r", self.acc[0])
-	acc_s_summ = tf.summary.scalar("acc_s", self.acc[1])
-	test_summ.append(acc_r_summ)
+        acc_s_summ = tf.summary.scalar("acc_s", self.acc[1])
+        test_summ.append(acc_r_summ)
         test_summ.append(acc_s_summ)
 
-	self.increment_global_step = tf.assign_add(self.global_step, 1, name = 'increment_global_step')
-	self.increment_epoch_step = tf.assign_add(self.epoch_step, 1, name = 'increment_global_step')
+        self.increment_global_step = tf.assign_add(self.global_step, 1, name='increment_global_step')
+        self.increment_epoch_step = tf.assign_add(self.epoch_step, 1, name='increment_global_step')
 
         self.train_merged_summary_op = tf.summary.merge(test_summ)
         self.test_merged_summary_op = tf.summary.merge(test_summ)
@@ -244,9 +244,9 @@ class NeuralNetwork:
 
     def get_accuracy(self):
         # correct = tf.equal(tf.argmax(self.out, 1), tf.argmax(self.target, 1))
-        correct_r = tf.abs(self.out[:,0]-self.target[:,0]) < 0.5
+        correct_r = tf.abs(self.out[:, 0] - self.target[:, 0]) < 0.5
         acc_r = tf.reduce_mean(tf.cast(correct_r, 'float'))
-        correct_s = tf.abs(self.out[:,1]-self.target[:,1]) < 0.5
+        correct_s = tf.abs(self.out[:, 1] - self.target[:, 1]) < 0.5
         acc_s = tf.reduce_mean(tf.cast(correct_s, 'float'))
         return acc_r, acc_s
 
@@ -258,30 +258,33 @@ class NeuralNetwork:
 
     def predict_eval_data(self, input_data):
         test_X, test_Y = input_data.get_test_data()
-	acc_r, acc_s = self.get_accuracy()
-	# remember when there is no [] in ops then the output is not a list!!!
-        predict, acc_r, acc_s = self.sess.run([self.out, acc_r, acc_s], feed_dict={self.target: test_Y, self.input: test_X, self.keep_prob: 1})
+        acc_r, acc_s = self.get_accuracy()
+        # remember when there is no [] in ops then the output is not a list!!!
+        predict, acc_r, acc_s = self.sess.run([self.out, acc_r, acc_s],
+                                              feed_dict={self.target: test_Y, self.input: test_X, self.keep_prob: 1})
         # pd.DataFrame(predict[0]).reset_index(drop=True).join(test_Y.reset_index(drop=True)).to_csv('predict.csv')
         for k in range(len(predict)):
             print(predict[k], '=>', test_Y.iloc[k, :])
-	print('=> acc_r: %.2f%%, acc_s: %.2f%%'%(acc_r*100, acc_s*100))
+        print('=> acc_r: %.2f%%, acc_s: %.2f%%' % (acc_r * 100, acc_s * 100))
 
     def run_train(self, input_data):
         test_X, test_Y = input_data.get_test_data()
         ss = self.sess.run(self.epoch_step)
         step = self.sess.run(self.global_step)
-        train_ops = [self.loss, self.loss1, self.out, self.train_merged_summary_op, self.optimizer, self.optimizer1, self.increment_global_step]  
+        train_ops = [self.loss, self.loss1, self.out, self.train_merged_summary_op, self.optimizer, self.optimizer1,
+                     self.increment_global_step]
         test_ops = [self.test_merged_summary_op]
         try:
             for k in range(ss, self.epochs):
                 epoch_loss = 0
                 epoch_loss1 = 0
                 epoch_acc_r = 0
-		epoch_acc_s = 0
+                epoch_acc_s = 0
                 number_of_batch = 0
                 for train_X, train_Y in input_data.get_train_data(self.batch_size):
                     # train_X, test_X, train_Y, test_Y = train_test_split(train_X, train_Y, test_size=0.2)
-                    cost, cost1, predic, summ = self.fit(train_X=train_X, train_Y=train_Y, keep_prob=self.my_keep_prob, ops=train_ops)[:4]
+                    cost, cost1, predic, summ = self.fit(train_X=train_X, train_Y=train_Y, keep_prob=self.my_keep_prob,
+                                                         ops=train_ops)[:4]
                     epoch_acc_r += self.fit(ops=self.acc[0], train_X=train_X, train_Y=train_Y, keep_prob=1.0)
                     epoch_acc_s += self.fit(ops=self.acc[1], train_X=train_X, train_Y=train_Y, keep_prob=1.0)
                     # print(predic)
@@ -291,16 +294,18 @@ class NeuralNetwork:
                     self.global_step += 1
                     step += 1
                     number_of_batch += 1
-                
+
                 # summ = self.fit(ops=test_ops, train_X=test_X, train_Y=test_Y, keep_prob=1.0)[0]
                 test_acc_r = self.fit(ops=self.acc[0], train_X=test_X, train_Y=test_Y, keep_prob=1.0)
                 test_acc_s = self.fit(ops=self.acc[1], train_X=test_X, train_Y=test_Y, keep_prob=1.0)
                 # self.test_writer.add_summary(summ, k)
                 self.sess.run(self.increment_epoch_step)
-                print('epoch => ', k+1)
-                print('average loss_r => %f, average loss_s => %f' %(epoch_loss/number_of_batch, epoch_loss1/number_of_batch))
-                print('average acc_r=> %.2f%%, average acc_s => %.2f%%' % (epoch_acc_r/number_of_batch*100, epoch_acc_s/number_of_batch*100))
-		print('test acc_r=> %.2f%%, test acc_s => %.2f%%' %(test_acc_r*100, test_acc_s*100))
+                print('epoch => ', k + 1)
+                print('average loss_r => %f, average loss_s => %f' % (
+                epoch_loss / number_of_batch, epoch_loss1 / number_of_batch))
+                print('average acc_r=> %.2f%%, average acc_s => %.2f%%' % (
+                epoch_acc_r / number_of_batch * 100, epoch_acc_s / number_of_batch * 100))
+                print('test acc_r=> %.2f%%, test acc_s => %.2f%%' % (test_acc_r * 100, test_acc_s * 100))
                 # print(predic)
                 # print(train_Y)
 
@@ -314,16 +319,9 @@ class NeuralNetwork:
             self.save_model()
             print('=> save finished')
 
+
 if __name__ == '__main__':
     con = config.Config()
     data = data_processing.DataGenerator(con)
     model = NeuralNetwork(con)
     model.run_train(data)
-
-
-
-
-
-
-
-
