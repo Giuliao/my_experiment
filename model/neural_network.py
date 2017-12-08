@@ -13,6 +13,9 @@ class NeuralNetwork:
     def __init__(self, con):
 
         self.struct = con.structure
+        self.activate_func = {'identity': tf.identity,
+                              'relu': tf.nn.relu,
+                              'sigmoid': tf.nn.sigmoid}
 
         self.layers_number = len(self.struct['structure'])
         self.W = {}
@@ -150,34 +153,35 @@ class NeuralNetwork:
             # tf.summary.histogram('activations', activations)
             return activations
 
+    def _make_computing_graph(self, origin_data):
+
+        if 'cnn1' in self.struct['structure'] or \
+                        'cnn' in self.struct['structure']:
+            local_input = tf.reshape(origin_data, [-1, self.image_size, self.image_size, 5])
+        else:
+            local_input = origin_data
+
+        for i in range(self.layers_number):
+            layer_name = self.struct['structure'][i]
+            if 'cnn' in layer_name:
+                dimension = self.struct[layer_name]['struct']
+                local_input = self.nn_layer(local_input, dimension, layer_name, cnn=True)
+            elif 'pool' in layer_name:
+                dimension = self.struct[layer_name]['ksize']
+                local_input = self.nn_layer(local_input, dimension, layer_name, pool=True)
+            elif 'full' in layer_name:
+                dimension = self.struct[layer_name]['struct']
+                if local_input.shape[1] != dimension[0]:
+                    local_input = tf.reshape(local_input, [-1, dimension[0]])
+                local_input = self.nn_layer(local_input, dimension, layer_name)
+            elif 'out' in layer_name:
+                dimension = self.struct[layer_name]['struct']
+                local_input = self.nn_layer(local_input, dimension, layer_name,
+                                            act=self.activate_func[self.struct[layer_name]['act']])
+
+        return local_input
+
     def build_network_model(self):
-
-        def make_computing_graph(origin_data):
-
-            if 'cnn1' in self.struct['structure'] or \
-                            'cnn' in self.struct['structure']:
-                local_input = tf.reshape(origin_data, [-1, self.image_size, self.image_size, 5])
-            else:
-                local_input = origin_data
-
-            for i in range(self.layers_number):
-                layer_name = self.struct['structure'][i]
-                if 'cnn' in layer_name:
-                    dimension = self.struct[layer_name]['struct']
-                    local_input = self.nn_layer(local_input, dimension, layer_name, cnn=True)
-                elif 'pool' in layer_name:
-                    dimension = self.struct[layer_name]['ksize']
-                    local_input = self.nn_layer(local_input, dimension, layer_name, pool=True)
-                elif 'full' in layer_name:
-                    dimension = self.struct[layer_name]['struct']
-                    if local_input.shape[1] != dimension[0]:
-                        local_input = tf.reshape(local_input, [-1, dimension[0]])
-                    local_input = self.nn_layer(local_input, dimension, layer_name)
-                elif 'out' in layer_name:
-                    dimension = self.struct[layer_name]['struct']
-                    local_input = self.nn_layer(local_input, dimension, layer_name, act=self.struct[layer_name]['act'])
-
-            return local_input
 
         test_summ = []
 
@@ -188,7 +192,7 @@ class NeuralNetwork:
         self.global_step = tf.Variable(0, trainable=False, name="global_step")
 
         with tf.name_scope('Model'):
-            self.out = make_computing_graph(self.input)
+            self.out = self._make_computing_graph(self.input)
 
         with tf.name_scope('Loss'):
             self.loss, self.loss1 = self._make_loss()
@@ -303,9 +307,9 @@ class NeuralNetwork:
                 self.sess.run(self.increment_epoch_step)
                 print('epoch => ', k + 1)
                 print('average loss_r => %f, average loss_s => %f' % (
-                epoch_loss / number_of_batch, epoch_loss1 / number_of_batch))
+                    epoch_loss / number_of_batch, epoch_loss1 / number_of_batch))
                 print('average acc_r=> %.2f%%, average acc_s => %.2f%%' % (
-                epoch_acc_r / number_of_batch * 100, epoch_acc_s / number_of_batch * 100))
+                    epoch_acc_r / number_of_batch * 100, epoch_acc_s / number_of_batch * 100))
                 print('test acc_r=> %.2f%%, test acc_s => %.2f%%' % (test_acc_r * 100, test_acc_s * 100))
                 # print(predic)
                 # print(train_Y)
@@ -315,10 +319,12 @@ class NeuralNetwork:
         except Exception as e:
             traceback.print_exc()
             self.close()
+            self.sess = None
             print('=> session closed')
         finally:
-            self.save_model()
-            print('=> save finished')
+            if self.sess is not None:
+                self.save_model()
+                print('=> save finished')
 
 
 if __name__ == '__main__':
