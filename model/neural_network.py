@@ -44,6 +44,7 @@ class NeuralNetwork:
         self.global_step = None
         self.increment_global_step = None
         self.optimizer = None
+        self.optimizer1 = None
         self.loss = None
         self.loss1 = None
         self.acc = None
