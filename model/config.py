@@ -16,7 +16,7 @@ class Config:
             self.n_classes = 2
             self.input_size = 3920
             self.image_size = 28
-
+            self.channel = 5
             self.structure = {
                 'structure': ['cnn1', 'pool1', 'cnn2', 'pool2',
                               'cnn3', 'cnn4', 'pool3', 'full1',
@@ -126,7 +126,7 @@ class Config:
                 self.n_classes = json_dict['n_classes']
                 self.input_size = json_dict['input_size']
                 self.image_size = json_dict['image_size']
-
+                self.channel = json_dict['channel']
                 self.test_path_to_log = json_dict['test_path_to_log']
                 self.train_path_to_log = json_dict['train_path_to_log']
                 self.epochs = json_dict['epochs']

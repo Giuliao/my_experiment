@@ -6,7 +6,6 @@ import tensorflow as tf
 import data_processing
 from model import config
 import traceback
-import pandas as pd
 
 
 class NeuralNetwork:
@@ -27,17 +26,16 @@ class NeuralNetwork:
         self.n_classes = con.n_classes
         self.my_keep_prob = con.keep_prob
         self.image_size = con.image_size
+        self.channel = con.channel
         self.learning_rate = con.learning_rate
 
         self.alpha = con.alpha
         self.beta = con.beta
         self.reg_lambda = con.reg
-
         self.decay_steps = con.decay_steps
         self.decay_rate = con.decay_rate
-
-        # self.path_to_save_predict = con.path_to_save_predict
         self.model_path = con.model_path
+        # self.path_to_save_predict = con.path_to_save_predict
 
         self.input = None
         self.target = None
@@ -97,9 +95,9 @@ class NeuralNetwork:
             return ret
 
         with tf.name_scope('loss1'):
-            loss1 = tf.reduce_sum(tf.pow(self.out[:, 0] - self.target[:, 0], 2)) + get_reg_loss(self.W, self.b)
+            loss1 = tf.reduce_sum(tf.pow(self.out[:, 0] - self.target[:, 0], 2))
         with tf.name_scope('loss2'):
-            loss2 = tf.reduce_sum(tf.pow(self.out[:, 1] - self.target[:, 1], 2)) + get_reg_loss(self.W, self.b)
+            loss2 = tf.reduce_sum(tf.pow(self.out[:, 1] - self.target[:, 1], 2))
 
         return loss1, loss2
 
@@ -157,7 +155,7 @@ class NeuralNetwork:
 
         if 'cnn1' in self.struct['structure'] or \
                         'cnn' in self.struct['structure']:
-            local_input = tf.reshape(origin_data, [-1, self.image_size, self.image_size, 5])
+            local_input = tf.reshape(origin_data, [-1, self.image_size, self.image_size, self.channel])
         else:
             local_input = origin_data
 
