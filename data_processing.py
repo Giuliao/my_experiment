@@ -6,7 +6,7 @@ import numpy as np
 import traceback
 import scipy
 from sklearn.model_selection import train_test_split
-
+from sklearn import preprocessing
 from model import config
 
 
@@ -25,11 +25,11 @@ class DataGenerator:
 
         df = pd.concat(pd_ll)
         # print(df.head())
-        valid_X = df.iloc[: -4096, : -self.n_classes].reset_index(drop=True)
-        valid_Y = df.iloc[: -4096, -self.n_classes:].reset_index(drop=True)
+        valid_X = df.iloc[:, : -self.n_classes].reset_index(drop=True)
+        valid_Y = df.iloc[:, -self.n_classes:].reset_index(drop=True)
         train_X, test_X, train_Y, test_Y = train_test_split(valid_X, valid_Y, test_size=0)
-        test_X = df.iloc[-4096:, : -self.n_classes].reset_index(drop=True)
-        test_Y = df.iloc[-4096:, -self.n_classes:].reset_index(drop=True)
+        # test_X = df.iloc[-4096:, : -self.n_classes].reset_index(drop=True)
+        # test_Y = df.iloc[-4096:, -self.n_classes:].reset_index(drop=True)
 
         print('=> train data size:', train_X.shape[0])
         print('=> test data size:', test_X.shape[0])
@@ -49,8 +49,9 @@ class DataGenerator:
 def get_image_data():
     con = config.Config()
     data = DataGenerator(con)
-    xedges = [_ / 28 for _ in range(29)]
-    yedges = [_ / 28 for _ in range(29)]
+    xedges = [_ / 7 for _ in range(-14, 15)]
+    yedges = [_ / 7 for _ in range(-14, 15)]
+
     columns = [str(_) for _ in range(28 * 28 * 5)]
     columns.extend(['r', 's'])
     df = pd.DataFrame()
@@ -60,8 +61,7 @@ def get_image_data():
                 x.values.reshape((10, 10)))  # np.linalg.eig will return the complex data sometimes...
             image_data = {}
             for i in range(len(v)):
-                ma, mi = np.max(v[i]), np.min(v[i])
-                new_v = map(lambda x: float((x - mi) / (ma - mi)), v[i])
+                new_v = preprocessing.scale(v[i])
 
                 for k in range(0, len(new_v), 2):
                     if k not in image_data:
@@ -90,37 +90,40 @@ def get_image_data():
 
     finally:
         print(df.head())
-        df.to_csv('./data/undirected/node_10/image.csv')
+        df.to_csv('./data/undirected/node_10/image_with_std.csv')
+
+
+def test_image():
+    import matplotlib.pyplot as plt
+
+    con = config.Config()
+    data = DataGenerator(con)
+    xedges = [_ / 7 for _ in range(-14, 15)]
+    yedges = [_ / 7 for _ in range(-14, 15)]
+    image_data = {}
+    for x, y in data.get_train_data(1):
+        e, v = scipy.linalg.eigh(
+            x.values.reshape((10, 10)))  # np.linalg.eig will return the complex data sometimes...
+
+        for i in range(1, len(v)):
+            new_v = preprocessing.scale(v[i])
+
+            for k in range(0, len(new_v), 2):
+                if k not in image_data:
+                    image_data[k] = {}
+                    image_data[k][0] = [new_v[k]]
+                    image_data[k][1] = [new_v[k + 1]]
+                else:
+                    image_data[k][0].append(new_v[k])
+                    image_data[k][1].append(new_v[k + 1])
+
+        for k in image_data.keys():
+            H, new_xedges, new_yedges = np.histogram2d(image_data[k][0], image_data[k][1], bins=(xedges, yedges))
+            print(H)
+            plt.imshow(H, cmap=plt.cm.gray, interpolation='nearest', origin='low',
+                       extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
+            plt.show()
 
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    con = config.Config()
-    data = DataGenerator(con)
-    xedges = [_ / 28 for _ in range(29)]
-    yedges = [_ / 28 for _ in range(29)]
-    try:
-        for x, y in data.get_train_data(1):
-            e, v = scipy.linalg.eigh(
-                x.values.reshape((10, 10)))  # np.linalg.eig will return the complex data sometimes...
-            image_data = {}
-            for i in range(len(v)):
-                ma, mi = np.max(v[i]), np.min(v[i])
-                new_v = map(lambda x: float((x - mi) / (ma - mi)), v[i])
-
-                for k in range(0, len(new_v), 2):
-                    if k not in image_data:
-                        image_data[k] = {}
-                        image_data[k][0] = [new_v[k]]
-                        image_data[k][1] = [new_v[k + 1]]
-                    else:
-                        image_data[k][0].append(new_v[k])
-                        image_data[k][1].append(new_v[k + 1])
-
-            for k in image_data.keys():
-                H, new_xedges, new_yedges = np.histogram2d(image_data[k][0], image_data[k][1], bins=(xedges, yedges))
-                plt.imshow(H, interpolation='nearest', origin='low', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
-                plt.show()
-
-    except Exception:
-        traceback.print_exc()
+   get_image_data()
