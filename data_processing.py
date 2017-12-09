@@ -46,6 +46,7 @@ class DataGenerator:
     def get_test_data(self):
         return self.test_X, self.test_Y
 
+
 def get_image_data():
     con = config.Config()
     data = DataGenerator(con)
@@ -57,6 +58,8 @@ def get_image_data():
     df = pd.DataFrame()
     try:
         for x, y in data.get_train_data(1):
+            if y.iloc[0, 1] not in [2, 3, 4, 6]:
+                continue
             e, v = scipy.linalg.eigh(
                 x.values.reshape((10, 10)))  # np.linalg.eig will return the complex data sometimes...
             image_data = {}
@@ -87,10 +90,9 @@ def get_image_data():
             # plt.show()
     except Exception:
         traceback.print_exc()
-
     finally:
         print(df.head())
-        df.to_csv('./data/undirected/node_10/image_with_std.csv')
+        df.to_csv('./data/undirected/node_10/image_with_r_s_balance.csv')
 
 
 def test_image():
