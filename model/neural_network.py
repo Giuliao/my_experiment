@@ -17,7 +17,10 @@ class NeuralNetwork:
                               'sigmoid': tf.nn.sigmoid}
 
         self.layers_number = len(self.struct['structure'])
+
+        # save weights by key mapping to value
         self.W = {}
+        # save biases by key mapping to value
         self.b = {}
 
         self.batch_size = con.batch_size
@@ -116,7 +119,14 @@ class NeuralNetwork:
             tf.summary.scalar('min', tf.reduce_min(var))
             tf.summary.histogram('histogram', var)
 
-    def _make_weight_biases(self, dimension, name, mean=0, stddev=0.1):
+    def _make_weights_biases(self, dimension, name, mean=0, stddev=0.1):
+        """customized weights and biases constructor
+        :param dimension: 
+        :param name: 
+        :param mean: 
+        :param stddev: 
+        :return: weights and biases
+        """
         weights = tf.Variable(tf.random_normal(dimension, stddev=stddev), name=name + 'weights')
         # self.variable_summaries(weights)
         self.W[name + 'weights'] = weights
@@ -127,8 +137,16 @@ class NeuralNetwork:
         return weights, biases
 
     def fully_connected(self, local_struct, input_tensor, dimension, layer_name, act=tf.nn.relu):
+        """customized fully connected network constructor
+        :param local_struct: a struct includes the parameters
+        :param input_tensor: 
+        :param dimension: 
+        :param layer_name: the name of layer
+        :param act: activate function
+        :return: a tensor
+        """
         with tf.name_scope(layer_name) as ns:
-            weights, biases = self._make_weight_biases(dimension=dimension, name=ns)
+            weights, biases = self._make_weights_biases(dimension=dimension, name=ns)
             with tf.name_scope('Wx_plus_b'):
                 preactivate = tf.matmul(input_tensor, weights) + biases
             if 'dropout' in local_struct[layer_name] and local_struct[layer_name]['dropout']:
@@ -141,8 +159,20 @@ class NeuralNetwork:
             return activations
 
     def conv2d(self,local_struct, input_tensor, dimension, layer_name, act=tf.nn.relu):
+        """customized 2d convolution network constructor
+        :param local_struct: 
+            a struct includes the parameters
+        :param input_tensor: 
+        :param dimension: 
+        :param layer_name: 
+        :param act: 
+            activate function
+        :return: 
+            a tensor
+        """
+
         with tf.name_scope(layer_name) as ns:
-            weights, biases = self._make_weight_biases(dimension, ns)
+            weights, biases = self._make_weights_biases(dimension, ns)
             with tf.name_scope('Wx_plus_b'):
                 preactivate = tf.nn.conv2d(
                     input_tensor,
@@ -159,6 +189,14 @@ class NeuralNetwork:
             return activations
 
     def max_pool(self, local_struct, input_tensor, dimension, layer_name):
+        """customized max pool constructor
+        :param local_struct:
+            a struct includes the parameters
+        :param input_tensor: 
+        :param dimension: 
+        :param layer_name: 
+        :return: 
+        """
         with tf.name_scope(layer_name):
             activations = tf.nn.max_pool(
                 input_tensor,
@@ -173,8 +211,25 @@ class NeuralNetwork:
         return activations
 
     def _make_computing_graph(self, local_input, local_struct):
+        """make computing graph by parsing the local_struct recursively.
+        
+         read the definition of a network from a json file, 
+        'parallel', constrcut network parallelly.
+        'cnn', construct a cnn layer.
+        'pool', construct a pool layer.
+        
+        :param local_input: 
+        :param local_struct: 
+        :return: 
+            a tensor or a list
+        """
         for i in range(len(local_struct['structure'])):
+            # a struct contains layer name for reading layers by order
             layer_name = local_struct['structure'][i]
+
+            # parallel layer, includes parallel_layer1,...,
+            # parallel_layern and parallel_out_layer
+            # parallel_out_layer will not concatenate the tensor
             if 'parallel' in layer_name:
                 local_input_total = []
                 for key in local_struct[layer_name].keys():
@@ -182,8 +237,8 @@ class NeuralNetwork:
                         local_input,
                         local_struct[layer_name][key]
                     )
-                    # dimension multiply, https://stackoverflow.com/questions/44275212/how-to-multiply-dimensions-of-a-tensor
-
+                    # dimension multiply,
+                    # https://stackoverflow.com/questions/44275212/how-to-multiply-dimensions-of-a-tensor
                     new_shape = tf.reduce_prod(local_input1.shape[1:])
                     local_input_total.append(tf.reshape(local_input1, [-1, new_shape]))
                 if 'out' in layer_name:
@@ -191,8 +246,10 @@ class NeuralNetwork:
 
                 local_input = tf.concat(local_input_total, axis=1, name=layer_name+'concate') # axis=1, concate the column!!!
 
+            # cnn layer
             elif 'cnn' in layer_name:
                 dimension = local_struct[layer_name]['struct']
+                # reshape and alignment
                 if len(local_input.shape) != 4 or local_input.shape[-1] != dimension[-2]:
                     local_input = tf.reshape(local_input, [-1, self.image_size, self.image_size, self.channel])
                 dimension = local_struct[layer_name]['struct']
@@ -203,6 +260,7 @@ class NeuralNetwork:
                     layer_name
                 )
 
+            # max pool layer
             elif 'pool' in layer_name:
                 dimension = local_struct[layer_name]['ksize']
                 local_input = self.max_pool(
@@ -212,8 +270,10 @@ class NeuralNetwork:
                     layer_name
                 )
 
+            # fully connected layer
             elif 'full' in layer_name:
                 dimension = local_struct[layer_name]['struct']
+                # reshape and alignment
                 if local_input.shape[1] != dimension[0]:
                     local_input = tf.reshape(local_input, [-1, dimension[0]])
                 local_input = self.fully_connected(
@@ -222,7 +282,7 @@ class NeuralNetwork:
                     dimension,
                     layer_name
                 )
-
+            # out layer, actually the same as fully connected
             elif 'out' in layer_name:
                 dimension = local_struct[layer_name]['struct']
                 local_input = self.fully_connected(
@@ -236,6 +296,9 @@ class NeuralNetwork:
         return local_input
 
     def build_network_model(self):
+        """ build the network and initialize variables
+        :return: 
+        """
 
         test_summ = []
 
