@@ -14,13 +14,13 @@
 ### 3. Simple Structure
 ```json
     "structure": {
-      "struct": [layer1, layer2...],
+      "struct": ["layer1", "layer2", ...],
       "layer1": {
-        para1: xxx,
+        "para1": xxx,
         ...
       },
       "layer2": {
-        para1: xxx,
+        "para1": xxx,
         ...
       }
     }

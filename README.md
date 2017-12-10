@@ -22,17 +22,20 @@
 ## graph.py
 - will modified it or just remove it
 - get from [here](https://github.com/suanrong/SDNE/blob/master/graph.py)
+## main.py
+- usage: firstly need to write a configurations file, see [here](https://github.com/Giuliao/my_experiment/blob/master/data/configurations/README.md), 
+then just run *python main.py*
 
-### model
+## model
 - config.py: a configuration file, can be read from a [json file](https://github.com/Giuliao/my_experiment/tree/master/data/configurations)
 - neural_network.py: generate a model
 - rbm.py: see [here](https://gist.github.com/blackecho/db85fab069bd2d6fb3e7)
 - sdne.py see [here](https://github.com/suanrong/SDNE/blob/master/model/sdne.py)
 - utils.py see [here](https://gist.github.com/blackecho/db85fab069bd2d6fb3e7)
 
-### data
+## data
 - include the network data distinguished by (r, s)-robust
 
-### assests
+## assests
  
 
