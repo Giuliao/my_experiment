@@ -95,9 +95,9 @@ class NeuralNetwork:
             return ret
 
         with tf.name_scope('loss1'):
-            loss1 = tf.reduce_sum(tf.pow(self.out[:, 0] - self.target[:, 0], 2))
+            loss1 = tf.reduce_sum(tf.pow(self.out[0] - self.target[:, 0], 2))
         with tf.name_scope('loss2'):
-            loss2 = tf.reduce_sum(tf.pow(self.out[:, 1] - self.target[:, 1], 2))
+            loss2 = tf.reduce_sum(tf.pow(self.out[1] - self.target[:, 1], 2))
 
         return loss1, loss2
 
@@ -183,10 +183,13 @@ class NeuralNetwork:
                         local_struct[layer_name][key]
                     )
                     # dimension multiply, https://stackoverflow.com/questions/44275212/how-to-multiply-dimensions-of-a-tensor
+
                     new_shape = tf.reduce_prod(local_input1.shape[1:])
                     local_input_total.append(tf.reshape(local_input1, [-1, new_shape]))
-                local_input = tf.concat(local_input_total, axis=1, name=layer_name+'concate') # axis=1, concate the column!!!
+                if 'out' in layer_name:
+                    return local_input_total
 
+                local_input = tf.concat(local_input_total, axis=1, name=layer_name+'concate') # axis=1, concate the column!!!
 
             elif 'cnn' in layer_name:
                 dimension = local_struct[layer_name]['struct']
@@ -221,13 +224,13 @@ class NeuralNetwork:
                 )
 
             elif 'out' in layer_name:
-                dimension = self.struct[layer_name]['struct']
+                dimension = local_struct[layer_name]['struct']
                 local_input = self.fully_connected(
                     local_struct,
                     local_input,
                     dimension,
                     layer_name,
-                    act=self.activate_func[self.struct[layer_name]['act']]
+                    act=self.activate_func[local_struct[layer_name]['act']]
                 )
 
         return local_input
@@ -300,9 +303,9 @@ class NeuralNetwork:
 
     def get_accuracy(self):
         # correct = tf.equal(tf.argmax(self.out, 1), tf.argmax(self.target, 1))
-        correct_r = tf.abs(self.out[:, 0] - self.target[:, 0]) < 0.5
+        correct_r = tf.abs(self.out[0] - self.target[:, 0]) < 0.5
         acc_r = tf.reduce_mean(tf.cast(correct_r, 'float'))
-        correct_s = tf.abs(self.out[:, 1] - self.target[:, 1]) < 0.5
+        correct_s = tf.abs(self.out[1] - self.target[:, 1]) < 0.5
         acc_s = tf.reduce_mean(tf.cast(correct_s, 'float'))
         return acc_r, acc_s
 

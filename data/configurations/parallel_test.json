@@ -1,0 +1,247 @@
+{
+  "file_name_list": [
+    "./data/undirected/node_10/image.csv"
+  ],
+  "decay_steps": 200,
+  "decay_rate": 0.99,
+  "n_classes": 2,
+  "input_size": 3920,
+  "image_size": 28,
+  "channel": 5,
+  "structure": {
+    "structure": [
+      "parallel_layer1",
+      "parallel_out_layer"
+    ],
+
+    "parallel_layer1": {
+      "structure1": {
+        "structure": [
+          "cnn1",
+          "pool1",
+          "cnn2",
+          "pool2"
+        ],
+        "cnn1": {
+          "struct": [
+            3,
+            3,
+            5,
+            64
+          ],
+          "padding": "VALID",
+          "strides": [
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        "pool1": {
+          "ksize": [
+            1,
+            2,
+            2,
+            1
+          ],
+          "padding": "SAME",
+          "strides": [
+            1,
+            2,
+            2,
+            1
+          ],
+          "dropout": true
+        },
+        "cnn2": {
+          "struct": [
+            3,
+            3,
+            64,
+            96
+          ],
+          "padding": "VALID",
+          "strides": [
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        "pool2": {
+          "ksize": [
+            1,
+            2,
+            2,
+            1
+          ],
+          "padding": "SAME",
+          "strides": [
+            1,
+            2,
+            2,
+            1
+          ],
+          "dropout": true
+        }
+      },
+      "structure2": {
+        "structure": [
+          "cnn3",
+          "pool3",
+          "cnn4",
+          "pool4"
+        ],
+        "cnn3": {
+          "struct": [
+            4,
+            4,
+            5,
+            64
+          ],
+          "padding": "VALID",
+          "strides": [
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        "pool3": {
+          "ksize": [
+            1,
+            2,
+            2,
+            1
+          ],
+          "padding": "SAME",
+          "strides": [
+            1,
+            2,
+            2,
+            1
+          ],
+          "dropout": true
+        },
+        "cnn4": {
+          "struct": [
+            4,
+            4,
+            64,
+            96
+          ],
+          "padding": "VALID",
+          "strides": [
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        "pool4": {
+          "ksize": [
+            1,
+            2,
+            2,
+            1
+          ],
+          "padding": "SAME",
+          "strides": [
+            1,
+            2,
+            2,
+            1
+          ],
+          "dropout": false
+        }
+      }
+    },
+
+    "parallel_out_layer": {
+      "structure1": {
+        "structure": [
+          "full1",
+          "full2",
+          "full3",
+          "out_layer"
+        ],
+        "full1": {
+          "struct": [
+            5856,
+            2048
+          ],
+          "dropout": true
+        },
+        "full2": {
+          "struct": [
+            2048,
+            1024
+          ],
+          "dropout": false
+        },
+        "full3": {
+          "struct": [
+            1024,
+            256
+          ],
+          "dropout": false
+        },
+        "out_layer": {
+          "struct": [
+            256,
+            1
+          ],
+          "act": "identity"
+        }
+      },
+      "structure2": {
+        "structure": [
+          "full1",
+          "full2",
+          "full3",
+          "out_layer"
+        ],
+        "full1": {
+          "struct": [
+            5856,
+            2048
+          ],
+          "dropout": true
+        },
+        "full2": {
+          "struct": [
+            2048,
+            1024
+          ],
+          "dropout": false
+        },
+        "full3": {
+          "struct": [
+            1024,
+            256
+          ],
+          "dropout": false
+        },
+        "out_layer": {
+          "struct": [
+            256,
+            1
+          ],
+          "act": "identity"
+        }
+      }
+    }
+  },
+  "test_path_to_log": "./logs/tensorboard_with_parallel/test_10_node/",
+  "train_path_to_log": "./logs/tensorboard_with_parallel/train_10_node/",
+  "epochs": 1000,
+  "model_path": "./logs/saved_model/v_with_parallel/",
+  "alpha": 500,
+  "gamma": 1,
+  "reg": 1,
+  "beta": 1,
+  "keep_prob": 0.7,
+  "batch_size": 256,
+  "learning_rate": 0.001,
+  "display": 1
+}

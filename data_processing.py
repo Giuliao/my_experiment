@@ -25,11 +25,14 @@ class DataGenerator:
 
         df = pd.concat(pd_ll)
         # print(df.head())
-        valid_X = df.iloc[:, : -self.n_classes].reset_index(drop=True)
-        valid_Y = df.iloc[:, -self.n_classes:].reset_index(drop=True)
-        train_X, test_X, train_Y, test_Y = train_test_split(valid_X, valid_Y, test_size=0.2)
-        # test_X = df.iloc[-4096:, : -self.n_classes].reset_index(drop=True)
-        # test_Y = df.iloc[-4096:, -self.n_classes:].reset_index(drop=True)
+        # valid_X = df.iloc[:, : -self.n_classes].reset_index(drop=True)
+        # valid_Y = df.iloc[:, -self.n_classes:].reset_index(drop=True)
+        # train_X, test_X, train_Y, test_Y = train_test_split(valid_X, valid_Y, test_size=0.2)
+
+        train_X = df.iloc[:-4096, : -self.n_classes].reset_index(drop=True)
+        train_Y = df.iloc[:-4096, -self.n_classes:].reset_index(drop=True)
+        test_X = df.iloc[-4096:, : -self.n_classes].reset_index(drop=True)
+        test_Y = df.iloc[-4096:, -self.n_classes:].reset_index(drop=True)
 
         print('=> train data size:', train_X.shape[0])
         print('=> test data size:', test_X.shape[0])
