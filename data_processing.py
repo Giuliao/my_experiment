@@ -27,7 +27,7 @@ class DataGenerator:
         # print(df.head())
         valid_X = df.iloc[:, : -self.n_classes].reset_index(drop=True)
         valid_Y = df.iloc[:, -self.n_classes:].reset_index(drop=True)
-        train_X, test_X, train_Y, test_Y = train_test_split(valid_X, valid_Y, test_size=0)
+        train_X, test_X, train_Y, test_Y = train_test_split(valid_X, valid_Y, test_size=0.2)
         # test_X = df.iloc[-4096:, : -self.n_classes].reset_index(drop=True)
         # test_Y = df.iloc[-4096:, -self.n_classes:].reset_index(drop=True)
 

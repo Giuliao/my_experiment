@@ -116,66 +116,119 @@ class NeuralNetwork:
             tf.summary.scalar('min', tf.reduce_min(var))
             tf.summary.histogram('histogram', var)
 
-    def nn_layer(self, input_tensor, dimension, layer_name, act=tf.nn.relu, cnn=False, pool=False):
+    def _make_weight_biases(self, dimension, name, mean=0, stddev=0.1):
+        weights = tf.Variable(tf.random_normal(dimension, stddev=stddev), name=name + 'weights')
+        # self.variable_summaries(weights)
+        self.W[name + 'weights'] = weights
+        biases = tf.Variable(tf.random_normal(dimension[-1:], mean=mean, stddev=stddev), name=name + 'biases')
+        # self.variable_summaries(biases)
+        self.b[name + 'biases'] = biases
 
-        if pool:
-            with tf.name_scope(layer_name):
-                activations = tf.nn.max_pool(input_tensor,
-                                             ksize=dimension,
-                                             strides=self.struct[layer_name]['strides'],
-                                             padding=self.struct[layer_name]['padding'])
+        return weights, biases
+
+    def fully_connected(self, local_struct, input_tensor, dimension, layer_name, act=tf.nn.relu):
+        with tf.name_scope(layer_name) as ns:
+            weights, biases = self._make_weight_biases(dimension=dimension, name=ns)
+            with tf.name_scope('Wx_plus_b'):
+                preactivate = tf.matmul(input_tensor, weights) + biases
+            if 'dropout' in local_struct[layer_name] and local_struct[layer_name]['dropout']:
+                preactivate = tf.nn.dropout(preactivate, keep_prob=self.keep_prob, name=ns+'dropout')
+                # tf.summary.histogram('pre_activations', preactivate)
+
+            activations = act(preactivate, name=ns + 'activation')
+            # tf.summary.histogram('activations', activations)
+
             return activations
 
-        with tf.name_scope(layer_name):
-            with tf.name_scope('weight'):
-                weights = tf.Variable(tf.random_normal(dimension, stddev=0.1), name=layer_name)
-                self.W[layer_name] = weights
-                # self.variable_summaries(weights)
-            with tf.name_scope('biases'):
-                biases = tf.Variable(tf.random_normal(dimension[-1:], mean=0, stddev=0.1), name=layer_name)
-                self.b[layer_name] = biases
-                # self.variable_summaries(biases)
+    def conv2d(self,local_struct, input_tensor, dimension, layer_name, act=tf.nn.relu):
+        with tf.name_scope(layer_name) as ns:
+            weights, biases = self._make_weight_biases(dimension, ns)
             with tf.name_scope('Wx_plus_b'):
-                if cnn:
-                    preactivate = tf.nn.conv2d(input_tensor, weights,
-                                               strides=self.struct[layer_name]['strides'],
-                                               padding=self.struct[layer_name]['padding'])
-                else:
-                    preactivate = tf.matmul(input_tensor, weights) + biases
+                preactivate = tf.nn.conv2d(
+                    input_tensor,
+                    weights,
+                    strides=local_struct[layer_name]['strides'],
+                    padding=local_struct[layer_name]['padding']
+                )
+            if 'dropout' in local_struct[layer_name] and local_struct[layer_name]['dropout']:
+                preactivate = tf.nn.dropout(preactivate, keep_prob=self.keep_prob, name=ns + 'dropout')
+                # tf.summary.histogram('pre_activations', preactivate)
 
-                if 'drop_out' in self.struct[layer_name] and self.struct[layer_name]['dropout']:
-                    preactivate = tf.nn.dropout(preactivate, keep_prob=self.keep_prob, name='dropout')
-                    # tf.summary.histogram('pre_activations', preactivate)
-            activations = act(preactivate, name='activation')
-
+            activations = act(preactivate, name=ns + 'activation')
             # tf.summary.histogram('activations', activations)
             return activations
 
-    def _make_computing_graph(self, origin_data):
+    def max_pool(self, local_struct, input_tensor, dimension, layer_name):
+        with tf.name_scope(layer_name):
+            activations = tf.nn.max_pool(
+                input_tensor,
+                ksize=dimension,
+                strides=local_struct[layer_name]['strides'],
+                padding=local_struct[layer_name]['padding']
+            )
 
-        if 'cnn1' in self.struct['structure'] or \
-                        'cnn' in self.struct['structure']:
-            local_input = tf.reshape(origin_data, [-1, self.image_size, self.image_size, self.channel])
-        else:
-            local_input = origin_data
+        if 'dropout' in local_struct[layer_name] and local_struct[layer_name]['dropout']:
+            activations = tf.nn.dropout(activations, keep_prob=self.keep_prob, name='dropout')
+            # tf.summary.histogram('activations', activations)
+        return activations
 
-        for i in range(self.layers_number):
-            layer_name = self.struct['structure'][i]
-            if 'cnn' in layer_name:
-                dimension = self.struct[layer_name]['struct']
-                local_input = self.nn_layer(local_input, dimension, layer_name, cnn=True)
+    def _make_computing_graph(self, local_input, local_struct):
+        for i in range(len(local_struct['structure'])):
+            layer_name = local_struct['structure'][i]
+            if 'parallel' in layer_name:
+                local_input_total = []
+                for key in local_struct[layer_name].keys():
+                    local_input1 = self._make_computing_graph(
+                        local_input,
+                        local_struct[layer_name][key]
+                    )
+                    # dimension multiply, https://stackoverflow.com/questions/44275212/how-to-multiply-dimensions-of-a-tensor
+                    new_shape = tf.reduce_prod(local_input1.shape[1:])
+                    local_input_total.append(tf.reshape(local_input1, [-1, new_shape]))
+                local_input = tf.concat(local_input_total, axis=1, name=layer_name+'concate') # axis=1, concate the column!!!
+
+
+            elif 'cnn' in layer_name:
+                dimension = local_struct[layer_name]['struct']
+                if len(local_input.shape) != 4 or local_input.shape[-1] != dimension[-2]:
+                    local_input = tf.reshape(local_input, [-1, self.image_size, self.image_size, self.channel])
+                dimension = local_struct[layer_name]['struct']
+                local_input = self.conv2d(
+                    local_struct,
+                    local_input,
+                    dimension,
+                    layer_name
+                )
+
             elif 'pool' in layer_name:
-                dimension = self.struct[layer_name]['ksize']
-                local_input = self.nn_layer(local_input, dimension, layer_name, pool=True)
+                dimension = local_struct[layer_name]['ksize']
+                local_input = self.max_pool(
+                    local_struct,
+                    local_input,
+                    dimension,
+                    layer_name
+                )
+
             elif 'full' in layer_name:
-                dimension = self.struct[layer_name]['struct']
+                dimension = local_struct[layer_name]['struct']
                 if local_input.shape[1] != dimension[0]:
                     local_input = tf.reshape(local_input, [-1, dimension[0]])
-                local_input = self.nn_layer(local_input, dimension, layer_name)
+                local_input = self.fully_connected(
+                    local_struct,
+                    local_input,
+                    dimension,
+                    layer_name
+                )
+
             elif 'out' in layer_name:
                 dimension = self.struct[layer_name]['struct']
-                local_input = self.nn_layer(local_input, dimension, layer_name,
-                                            act=self.activate_func[self.struct[layer_name]['act']])
+                local_input = self.fully_connected(
+                    local_struct,
+                    local_input,
+                    dimension,
+                    layer_name,
+                    act=self.activate_func[self.struct[layer_name]['act']]
+                )
 
         return local_input
 
@@ -190,7 +243,7 @@ class NeuralNetwork:
         self.global_step = tf.Variable(0, trainable=False, name="global_step")
 
         with tf.name_scope('Model'):
-            self.out = self._make_computing_graph(self.input)
+            self.out = self._make_computing_graph(self.input, self.struct)
 
         with tf.name_scope('Loss'):
             self.loss, self.loss1 = self._make_loss()
