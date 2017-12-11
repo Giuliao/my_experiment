@@ -41,6 +41,7 @@ class NeuralNetwork:
         # self.path_to_save_predict = con.path_to_save_predict
 
         self.input = None
+        self.out = []
         self.target = None
         self.keep_prob = None
         self.epoch_step = None
@@ -52,7 +53,6 @@ class NeuralNetwork:
         self.loss = None
         self.loss1 = None
         self.acc = None
-        self.out = None
         self.train_merged_summary_op = None
         self.test_merged_summary_op = None
         self.sess = None
@@ -150,7 +150,7 @@ class NeuralNetwork:
             with tf.name_scope('Wx_plus_b'):
                 preactivate = tf.matmul(input_tensor, weights) + biases
             if 'dropout' in local_struct[layer_name] and local_struct[layer_name]['dropout']:
-                preactivate = tf.nn.dropout(preactivate, keep_prob=self.keep_prob, name=ns+'dropout')
+                preactivate = tf.nn.dropout(preactivate, keep_prob=self.keep_prob, name=ns + 'dropout')
                 # tf.summary.histogram('pre_activations', preactivate)
 
             activations = act(preactivate, name=ns + 'activation')
@@ -158,7 +158,7 @@ class NeuralNetwork:
 
             return activations
 
-    def conv2d(self,local_struct, input_tensor, dimension, layer_name, act=tf.nn.relu):
+    def conv2d(self, local_struct, input_tensor, dimension, layer_name, act=tf.nn.relu):
         """customized 2d convolution network constructor
         :param local_struct: 
             a struct includes the parameters
@@ -205,9 +205,43 @@ class NeuralNetwork:
                 padding=local_struct[layer_name]['padding']
             )
 
-        if 'dropout' in local_struct[layer_name] and local_struct[layer_name]['dropout']:
-            activations = tf.nn.dropout(activations, keep_prob=self.keep_prob, name='dropout')
-            # tf.summary.histogram('activations', activations)
+            if 'dropout' in local_struct[layer_name] and local_struct[layer_name]['dropout']:
+                activations = tf.nn.dropout(activations, keep_prob=self.keep_prob, name='dropout')
+                # tf.summary.histogram('activations', activations)
+        return activations
+
+    def avg_pool(self, local_struct, input_tensor, dimension, layer_name):
+        """customized max pool constructor
+        :param local_struct:
+            a struct includes the parameters
+        :param input_tensor: 
+        :param dimension: 
+        :param layer_name: 
+        :return: 
+        """
+        with tf.name_scope(layer_name):
+            activations = tf.nn.avg_pool(
+                input_tensor,
+                ksize=dimension,
+                strides=local_struct[layer_name]['strides'],
+                padding=local_struct[layer_name]['padding']
+            )
+
+            if 'dropout' in local_struct[layer_name] and local_struct[layer_name]['dropout']:
+                activations = tf.nn.dropout(activations, keep_prob=self.keep_prob, name='dropout')
+                # tf.summary.histogram('activations', activations)
+        return activations
+
+    def local_response_normalization(self, local_struct, input_tensor, layer_name):
+        with tf.name_scope(layer_name):
+            activations = tf.nn.lrn(
+                input_tensor,
+                depth_radius=local_struct[layer_name]['depth_radius'],
+                bias=local_struct[layer_name]['bias'],
+                alpha=local_struct[layer_name]['alpha'],
+                beta=local_struct[layer_name]['beta'],
+                name=layer_name
+            )
         return activations
 
     def _make_computing_graph(self, local_input, local_struct):
@@ -223,51 +257,80 @@ class NeuralNetwork:
         :return: 
             a tensor or a list
         """
+
         for i in range(len(local_struct['structure'])):
             # a struct contains layer name for reading layers by order
             layer_name = local_struct['structure'][i]
-
             # parallel layer, includes parallel_layer1,...,
             # parallel_layern and parallel_out_layer
             # parallel_out_layer will not concatenate the tensor
-            if 'parallel' in layer_name:
-                local_input_total = []
-                for key in local_struct[layer_name].keys():
-                    local_input1 = self._make_computing_graph(
-                        local_input,
-                        local_struct[layer_name][key]
-                    )
-                    # dimension multiply,
-                    # https://stackoverflow.com/questions/44275212/how-to-multiply-dimensions-of-a-tensor
-                    new_shape = tf.reduce_prod(local_input1.shape[1:])
-                    local_input_total.append(tf.reshape(local_input1, [-1, new_shape]))
-                if 'out' in layer_name:
-                    return local_input_total
+            if 'inception' in layer_name:
+                with tf.name_scope(layer_name):
+                    if "image_size" in local_struct[layer_name]:
+                        image_size = local_struct[layer_name]['image_size']
+                        local_input = tf.reshape(local_input, [-1, image_size, image_size, 1])
 
-                local_input = tf.concat(local_input_total, axis=1, name=layer_name+'concate') # axis=1, concate the column!!!
+                    local_input_total = []
+                    for key in local_struct[layer_name]["structure"]:
+                        local_input1 = self._make_computing_graph(
+                            local_input,
+                            local_struct[layer_name][key]
+                        )
+
+                        if local_input1 is not None:
+                            # dimension multiply,
+                            # https://stackoverflow.com/questions/44275212/how-to-multiply-dimensions-of-a-tensor
+                            new_shape = tf.reduce_prod(local_input1.shape[1:])
+                            local_input_total.append(tf.reshape(local_input1, [-1, new_shape]))
+
+                    if len(local_input_total) > 0:
+                        # axis=1, concatenate the horizon!!!
+                        local_input = tf.concat(local_input_total, axis=1, name=layer_name + 'concate_op')
+                    else:
+                        local_input = None
 
             # cnn layer
-            elif 'cnn' in layer_name:
+            elif 'conv' in layer_name:
                 dimension = local_struct[layer_name]['struct']
                 # reshape and alignment
                 if len(local_input.shape) != 4 or local_input.shape[-1] != dimension[-2]:
+                    # [-1, filter_size, filter_size, channel_size]
                     local_input = tf.reshape(local_input, [-1, self.image_size, self.image_size, self.channel])
                 dimension = local_struct[layer_name]['struct']
+
                 local_input = self.conv2d(
                     local_struct,
                     local_input,
                     dimension,
-                    layer_name
+                    layer_name,
                 )
 
             # max pool layer
-            elif 'pool' in layer_name:
+            elif 'max_pool' in layer_name:
+                if len(local_input.shape) != 4:
+                    image_size = local_struct[layer_name]['image_size']
+                    local_input = tf.reshape(local_input, [-1, image_size, image_size, 1])
+
                 dimension = local_struct[layer_name]['ksize']
                 local_input = self.max_pool(
                     local_struct,
                     local_input,
                     dimension,
-                    layer_name
+                    layer_name,
+                )
+
+            # avg pool layer
+            elif 'avg_pool' in layer_name:
+                if len(local_input.shape) != 4:
+                    image_size = local_struct[layer_name]['image_size']
+                    local_input = tf.reshape(local_input, [-1, image_size, image_size, 1])
+
+                dimension = local_struct[layer_name]['ksize']
+                local_input = self.avg_pool(
+                    local_struct,
+                    local_input,
+                    dimension,
+                    layer_name,
                 )
 
             # fully connected layer
@@ -276,13 +339,23 @@ class NeuralNetwork:
                 # reshape and alignment
                 if local_input.shape[1] != dimension[0]:
                     local_input = tf.reshape(local_input, [-1, dimension[0]])
+
                 local_input = self.fully_connected(
                     local_struct,
                     local_input,
                     dimension,
-                    layer_name
+                    layer_name,
                 )
-            # out layer, actually the same as fully connected
+
+            # local response normalization layer
+            elif 'lrn' in layer_name:
+                local_input = self.local_response_normalization(
+                    local_struct,
+                    local_input,
+                    layer_name,
+                )
+
+            # out layer, actually the same as fully connected layer
             elif 'out' in layer_name:
                 dimension = local_struct[layer_name]['struct']
                 local_input = self.fully_connected(
@@ -292,6 +365,8 @@ class NeuralNetwork:
                     layer_name,
                     act=self.activate_func[local_struct[layer_name]['act']]
                 )
+                self.out.append(local_input)
+                local_input = None
 
         return local_input
 
@@ -309,7 +384,7 @@ class NeuralNetwork:
         self.global_step = tf.Variable(0, trainable=False, name="global_step")
 
         with tf.name_scope('Model'):
-            self.out = self._make_computing_graph(self.input, self.struct)
+            self._make_computing_graph(self.input, self.struct)
 
         with tf.name_scope('Loss'):
             self.loss, self.loss1 = self._make_loss()
@@ -409,7 +484,8 @@ class NeuralNetwork:
                                                          ops=train_ops)[:4]
                     epoch_acc_r += self.fit(ops=self.acc[0], train_X=train_X, train_Y=train_Y, keep_prob=1.0)
                     epoch_acc_s += self.fit(ops=self.acc[1], train_X=train_X, train_Y=train_Y, keep_prob=1.0)
-                    # print(predic)
+                    # print(predic) # debug
+                    # print(len(predic))
                     epoch_loss += cost
                     epoch_loss1 += cost1
                     self.train_writer.add_summary(summ, step)
