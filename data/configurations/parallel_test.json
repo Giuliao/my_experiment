@@ -1,6 +1,6 @@
 {
   "file_name_list": [
-    "./data/undirected/node_10/image.csv"
+    "./data/undirected/node_10/image_with_std.csv"
   ],
   "decay_steps": 200,
   "decay_rate": 0.99,
@@ -608,11 +608,11 @@
         "avg_pool1": {
           "ksize": [
             1,
-            5,
-            5,
+            14,
+            14,
             1
           ],
-          "padding": "SAME",
+          "padding": "VALID",
           "strides": [
             1,
             1,
@@ -627,7 +627,7 @@
             1,
             1,
             512,
-            64
+            128
           ],
           "padding": "SAME",
           "strides": [
@@ -639,14 +639,14 @@
         },
         "full1": {
           "struct": [
-            512,
-            128
+            128,
+            64
           ],
           "dropout": true
         },
         "out_layer": {
           "struct": [
-            128,
+            64,
             1
           ],
           "act": "identity"
