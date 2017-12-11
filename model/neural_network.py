@@ -267,8 +267,9 @@ class NeuralNetwork:
             if 'inception' in layer_name:
                 with tf.name_scope(layer_name):
                     if "image_size" in local_struct[layer_name]:
-                        image_size = local_struct[layer_name]['image_size']
-                        local_input = tf.reshape(local_input, [-1, image_size, image_size, 1])
+                        local_image_size = local_struct[layer_name]['image_size']
+                        local_channel = local_struct[layer_name]['channel']
+                        local_input = tf.reshape(local_input, [-1, local_image_size, local_image_size, local_channel])
 
                     local_input_total = []
                     for key in local_struct[layer_name]["structure"]:
@@ -308,8 +309,9 @@ class NeuralNetwork:
             # max pool layer
             elif 'max_pool' in layer_name:
                 if len(local_input.shape) != 4:
-                    image_size = local_struct[layer_name]['image_size']
-                    local_input = tf.reshape(local_input, [-1, image_size, image_size, 1])
+                    local_image_size = local_struct[layer_name]['image_size']
+                    local_channel = local_struct[layer_name]['channel']
+                    local_input = tf.reshape(local_input, [-1, local_image_size, local_image_size, local_channel])
 
                 dimension = local_struct[layer_name]['ksize']
                 local_input = self.max_pool(
@@ -322,8 +324,9 @@ class NeuralNetwork:
             # avg pool layer
             elif 'avg_pool' in layer_name:
                 if len(local_input.shape) != 4:
-                    image_size = local_struct[layer_name]['image_size']
-                    local_input = tf.reshape(local_input, [-1, image_size, image_size, 1])
+                    local_image_size = local_struct[layer_name]['image_size']
+                    local_channel = local_struct[layer_name]['channel']
+                    local_input = tf.reshape(local_input, [-1, local_image_size, local_image_size, local_channel])
 
                 dimension = local_struct[layer_name]['ksize']
                 local_input = self.avg_pool(

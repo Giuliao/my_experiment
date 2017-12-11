@@ -1,6 +1,6 @@
 {
   "file_name_list": [
-    "./data/undirected/node_10/image_with_std.csv"
+    "./data/undirected/node_10/image.csv"
   ],
   "decay_steps": 200,
   "decay_rate": 0.99,
@@ -76,7 +76,7 @@
           "struct": [
             1,
             1,
-            1,
+            192,
             64
           ],
           "padding": "SAME",
@@ -97,7 +97,7 @@
           "struct": [
             1,
             1,
-            1,
+            192,
             96
           ],
           "padding": "SAME",
@@ -133,7 +133,7 @@
           "struct": [
             1,
             1,
-            1,
+            192,
             16
           ],
           "padding": "SAME",
@@ -185,7 +185,7 @@
           "struct": [
             1,
             1,
-            1,
+            192,
             32
           ],
           "padding": "SAME",
@@ -197,7 +197,8 @@
           ]
         }
       },
-      "image_size": 28
+      "image_size": 28,
+      "channel": 192
     },
     "inception2": {
       "structure": [
@@ -214,7 +215,7 @@
           "struct": [
             1,
             1,
-            1,
+            256,
             128
           ],
           "padding": "SAME",
@@ -235,7 +236,7 @@
           "struct": [
             1,
             1,
-            1,
+            256,
             128
           ],
           "padding": "SAME",
@@ -252,7 +253,7 @@
             3,
             3,
             128,
-            196
+            192
           ],
           "padding": "SAME",
           "strides": [
@@ -273,7 +274,7 @@
           "struct": [
             1,
             1,
-            1,
+            256,
             32
           ],
           "padding": "SAME",
@@ -326,7 +327,7 @@
           "struct": [
             1,
             1,
-            1,
+            256,
             64
           ],
           "padding": "SAME",
@@ -338,7 +339,8 @@
           ]
         }
       },
-      "image_size": 28
+      "image_size": 28,
+      "channel": 256
     },
     "max_pool2": {
       "ksize": [
@@ -355,7 +357,8 @@
         1
       ],
       "dropout": false,
-      "image_size": 14
+      "image_size": 14,
+      "channel": 480
     },
     "inception3": {
       "structure": [
@@ -372,7 +375,7 @@
           "struct": [
             1,
             1,
-            1,
+            480,
             192
           ],
           "padding": "SAME",
@@ -393,7 +396,7 @@
           "struct": [
             1,
             1,
-            1,
+            480,
             96
           ],
           "padding": "SAME",
@@ -429,7 +432,7 @@
           "struct": [
             1,
             1,
-            1,
+            480,
             16
           ],
           "padding": "SAME",
@@ -481,7 +484,7 @@
           "struct": [
             1,
             1,
-            1,
+            480,
             64
           ],
           "padding": "SAME",
@@ -493,7 +496,8 @@
           ]
         }
       },
-      "image_size": 14
+      "image_size": 14,
+      "channel": 480
     },
     "inception4": {
       "structure": [
@@ -510,7 +514,7 @@
           "struct": [
             1,
             1,
-            1,
+            512,
             160
           ],
           "padding": "SAME",
@@ -531,7 +535,7 @@
           "struct": [
             1,
             1,
-            1,
+            512,
             112
           ],
           "padding": "SAME",
@@ -567,7 +571,7 @@
           "struct": [
             1,
             1,
-            1,
+            512,
             24
           ],
           "padding": "SAME",
@@ -622,7 +626,7 @@
           "struct": [
             1,
             1,
-            1,
+            512,
             64
           ],
           "padding": "SAME",
@@ -648,7 +652,8 @@
           "act": "identity"
         }
       },
-      "image_size": 14
+      "image_size": 14,
+      "channel": 512
     },
     "inception5": {
       "structure": [
@@ -665,7 +670,7 @@
           "struct": [
             1,
             1,
-            1,
+            512,
             128
           ],
           "padding": "SAME",
@@ -686,7 +691,7 @@
           "struct": [
             1,
             1,
-            1,
+            512,
             128
           ],
           "padding": "SAME",
@@ -722,7 +727,7 @@
           "struct": [
             1,
             1,
-            1,
+            512,
             24
           ],
           "padding": "SAME",
@@ -774,7 +779,7 @@
           "struct": [
             1,
             1,
-            1,
+            512,
             64
           ],
           "padding": "SAME",
@@ -786,7 +791,8 @@
           ]
         }
       },
-      "image_size": 14
+      "image_size": 14,
+      "channel": 512
     },
     "avg_pool1": {
       "ksize": [
@@ -803,7 +809,8 @@
         1
       ],
       "dropout": false,
-      "image_size": 14
+      "image_size": 14,
+      "channel": 512
     },
     "full1": {
       "struct": [
