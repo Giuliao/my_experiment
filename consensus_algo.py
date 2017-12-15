@@ -14,7 +14,7 @@ random.seed(time.time())
 
 class NetworkAlgo(object):
 
-    def __init__(self, vertex_num=5, p=0.5, network_file=None, vertex_value_file=None, adjMatrix=None):
+    def __init__(self, vertex_num=5, p=0.5, directed=False, network_file=None, vertex_value_file=None, adjMatrix=None):
         """ the init constructor
         :param vertex_num: 
         :param network_file: 
@@ -26,13 +26,13 @@ class NetworkAlgo(object):
             self.malicious_node
         """
         self.vertex_num = vertex_num
-        self.G = self.init_network(vertex_num, p, network_file, adjMatrix)
+        self.G = self.init_network(vertex_num, p,directed, network_file, adjMatrix)
         self.adjMatrix = nx.adjacency_matrix(self.G).todense().view(np.ndarray).reshape(self.vertex_num, self.vertex_num)
 
         self.init_vertex_value(self.G, vertex_value_file)
         self.malicious_node = []
 
-    def init_network(self, vertex_num=5, p=0.9, file_name=None, adjMatrix=None):
+    def init_network(self, vertex_num=5, p=0.9, directed=False, file_name=None, adjMatrix=None):
         """ init the network by reading a file
         
         :param file_name: 
@@ -69,7 +69,7 @@ class NetworkAlgo(object):
             #         p2 = np.random.randint(0, vertex_num)
             #     local_adjMatrix[p1][p2] = 1
             if local_adjMatrix is None:
-                local_G = nx.binomial_graph(vertex_num, p)
+                local_G = nx.binomial_graph(vertex_num, p, directed=directed)
             else:
                 local_G = nx.from_numpy_matrix(local_adjMatrix)
                 self.vertex_num = local_adjMatrix.shape[0]

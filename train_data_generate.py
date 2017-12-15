@@ -299,7 +299,7 @@ def undirected_data_generate(node_num, file_name):
             pool = multiprocessing.Pool(8, init_worker)
             result = []
             for k in range(16):
-                adjmatrix = consensus_algo.NetworkAlgo(node_num, p).adjMatrix
+                adjmatrix = consensus_algo.NetworkAlgo(node_num, p, directed=True).adjMatrix
                 if is_used is not None and any((adjmatrix.reshape((-1, node_num**2)) == x).all() for x in is_used):
                     # print('continue...')
                     continue
@@ -368,5 +368,34 @@ def undirected_data_generate(node_num, file_name):
             f.write(json.dumps(local_dict))
         print('finished, time:', time.time()-start_time)
 
+
+def test_data_generate():
+    from CheckRobustness import determine_robustness2
+    my_dict = {}
+    is_used = None
+    while 1:
+        mm = consensus_algo.NetworkAlgo(vertex_num=5, p=0.38, directed=True)
+        adjmatrix = mm.adjMatrix
+        node_num = mm.vertex_num
+        if is_used is not None and any((adjmatrix.reshape((-1, node_num ** 2)) == x).all() for x in is_used):
+            # print('continue...')
+            continue
+        else:
+            if is_used is None:
+                is_used = adjmatrix.reshape((-1, node_num ** 2))
+            else:
+                is_used = np.vstack((is_used, adjmatrix.reshape((-1, node_num ** 2))))
+
+        kk = determine_robustness2(mm.adjMatrix)
+        if kk not in my_dict:
+            my_dict[kk] = 1
+        else:
+            my_dict[kk] += 1
+        print_dict(my_dict)
+        print('*' * 75)
+        del mm
+
+
 if __name__ == '__main__':
-    undirected_data_generate(10, 'r_1')
+    # undirected_data_generate(10, 'r_1')
+    test_data_generate()
