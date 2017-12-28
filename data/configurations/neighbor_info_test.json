@@ -1,0 +1,134 @@
+{
+  "file_name_list": [
+    "./data/undirected/node_10/r_1.csv",
+    "./data/undirected/node_10/r_2.csv",
+    "./data/undirected/node_10/r_3.csv",
+    "./data/undirected/node_10/r_4.csv",
+    "./data/undirected/node_10/r_5.csv"
+  ],
+  "decay_steps": 200,
+  "decay_rate": 0.99,
+  "n_classes": 2,
+  "input_size": 100,
+  "image_size": 10,
+  "channel": 10,
+  "structure": {
+    "structure": [
+      "conv1",
+      "conv2",
+      "inception1"
+    ],
+    "conv1": {
+      "struct": [
+        1,
+        1,
+        10,
+        32
+      ],
+      "padding": "SAME",
+      "strides": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "conv2": {
+      "struct": [
+        1,
+        3,
+        32,
+        64
+      ],
+      "padding": "VALID",
+      "strides": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "inception1": {
+      "structure": [
+        "structure1",
+        "structure2"
+      ],
+      "structure1": {
+        "structure": [
+          "full1",
+          "full2",
+          "out_layer"
+        ],
+        "full1": {
+          "struct": [
+            512,
+            128
+          ],
+          "dropout": false
+        },
+        "full2": {
+          "struct": [
+            128,
+            64
+          ],
+          "dropout": true
+        },
+        "out_layer": {
+          "struct": [
+            64,
+            1
+          ],
+          "act": "identity"
+        }
+      },
+      "structure2": {
+        "structure": [
+          "full1",
+          "full2",
+          "full3",
+          "out_layer"
+        ],
+        "full1": {
+          "struct": [
+            512,
+            256
+          ],
+          "dropout": false
+        },
+        "full2": {
+          "struct": [
+            256,
+            128
+          ],
+          "dropout": true
+        },
+        "full3": {
+          "struct": [
+            128,
+            64
+          ],
+          "dropout": false
+        },
+        "out_layer": {
+          "struct": [
+            64,
+            1
+          ],
+          "act": "identity"
+        }
+      }
+    }
+  },
+  "test_path_to_log": "./logs/tensorboard_neighbor_info/test_10_node/",
+  "train_path_to_log": "./logs/tensorboard_neighbor_info/train_10_node/",
+  "epochs": 1000,
+  "model_path": "./logs/saved_model/neighbor_info/",
+  "alpha": 500,
+  "gamma": 1,
+  "reg": 1,
+  "beta": 1,
+  "keep_prob": 0.7,
+  "batch_size": 256,
+  "learning_rate": 0.001,
+  "display": 1
+}

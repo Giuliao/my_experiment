@@ -98,10 +98,11 @@ class NeuralNetwork:
             return ret
 
         with tf.name_scope('loss1'):
+            # loss1 = tf.reduce_sum(tf.pow(self.out[0][:, 0] - self.target[:, 0], 2))
             loss1 = tf.reduce_sum(tf.pow(self.out[0] - self.target[:, 0], 2))
         with tf.name_scope('loss2'):
+            # loss2 = tf.reduce_sum(tf.pow(self.out[0][:, 1] - self.target[:, 1], 2))
             loss2 = tf.reduce_sum(tf.pow(self.out[1] - self.target[:, 1], 2))
-
         return loss1, loss2
 
     def variable_summaries(self, var, name):
@@ -296,7 +297,8 @@ class NeuralNetwork:
                 # reshape and alignment
                 if len(local_input.shape) != 4 or local_input.shape[-1] != dimension[-2]:
                     # [-1, filter_size, filter_size, channel_size]
-                    local_input = tf.reshape(local_input, [-1, self.image_size, self.image_size, self.channel])
+                    # default [-1, self.image_size, self.image_size, self.channel]
+                    local_input = tf.reshape(local_input, [-1, 1, self.image_size, self.channel])
                 dimension = local_struct[layer_name]['struct']
 
                 local_input = self.conv2d(
@@ -444,8 +446,12 @@ class NeuralNetwork:
 
     def get_accuracy(self):
         # correct = tf.equal(tf.argmax(self.out, 1), tf.argmax(self.target, 1))
+
+        # correct_r = tf.abs(self.out[0][:, 0] - self.target[:, 0]) < 0.5
         correct_r = tf.abs(self.out[0] - self.target[:, 0]) < 0.5
         acc_r = tf.reduce_mean(tf.cast(correct_r, 'float'))
+
+        # correct_s = tf.abs(self.out[0][:, 1] - self.target[:, 1]) < 0.5
         correct_s = tf.abs(self.out[1] - self.target[:, 1]) < 0.5
         acc_s = tf.reduce_mean(tf.cast(correct_s, 'float'))
         return acc_r, acc_s
