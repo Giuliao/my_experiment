@@ -16,87 +16,6 @@ def print_dict(local_dict):
         print(k, '=>', local_dict[k],)
 
 
-def directed_data_generate(node_number):
-
-    const_node = node_number  # the number of vertex set
-    l2 = []  # record the matrix generated and in order to check duplicate matrix
-    local_dict = {}  # map the (1, 1) -> 1 and the like
-    count_s_dict = {}  # record the different number of s
-    count_r_dict = {}  # record the different number of r
-    ll_r = {}  # record every the number of every s part
-    r_scale = int(math.ceil(const_node/2.0))
-    const_combine = const_node * r_scale
-    s_part_number = 300
-
-    # record every local count
-    record_local_count = {}
-    control_factorize = const_combine - r_scale - 1
-
-    # in every r part, the total number of data, briefly, s_number* s_part_number
-    total_number = const_node*s_part_number
-
-    # calc the map relation between (1,1) -> 1 and the like
-    tmp_count = 1
-    for i in range(1, r_scale+1):
-        count_r_dict[i] = total_number
-        ll_r[i] = pd.DataFrame()
-        for j in range(1, const_node+1):
-            local_dict[(i, j)] = tmp_count
-            count_s_dict[tmp_count] = s_part_number
-            tmp_count += 1
-
-    start = time.time()
-    try:
-        while 1:
-            adjmatrix = consensus_algo.NetworkAlgo(vertex_num=const_node).adjMatrix
-
-            if adjmatrix.tolist() in l2:
-                continue
-            else:
-                l2.append(adjmatrix.tolist())
-
-            y = CheckRobustness.determine_robustness(adjmatrix)
-            tmp_adjmatrix = (adjmatrix.reshape([1, adjmatrix.shape[0]**2]).tolist())[0]
-            local_label = [0 for i in range(const_combine)]
-
-            for p in range(2, r_scale):
-                if y[0] == p and count_r_dict[p] > 0 and count_s_dict[local_dict[y]] > 0:
-                    count_s_dict[local_dict[y]] -= 1
-                    local_label[local_dict[y]-1] = 1
-                    tmp_adjmatrix.extend(local_label)
-                    ll_r[p] = pd.concat([ll_r[p], pd.DataFrame(tmp_adjmatrix).transpose()])
-                    count_r_dict[p] -= 1
-                    print("count_r_%d = %d" % (p, count_r_dict[p]))
-                    print_dict(count_s_dict)
-                    break
-
-            # print(adjmatrix)
-            # print(y)
-            local_count = 0
-
-            for p in range(1, const_combine):
-                if count_s_dict[p] == 0:
-                    local_count += 1
-
-            if local_count == const_combine:
-                break
-            elif local_count > control_factorize:
-                if local_count not in record_local_count:
-                    record_local_count[local_count] = 1
-                else:
-                    record_local_count[local_count] += 1
-
-                if record_local_count[local_count] > 300:
-                    1/0
-
-    except Exception as e:
-        print(traceback.print_exc())
-    finally:
-        # for p in range(2, r_scale):
-        #     ll_r[p].to_csv(("./data/node_{}/r_{}_train_data.csv".format(const_node, p)))
-        print("epoch %f" % (time.time()-start))
-
-
 def set_labels():
     r_1_train_data = pd.read_csv("./data/r_5_train_data.csv", header=0, index_col=0)
     labels = r_1_train_data.iloc[:, -1]
@@ -259,7 +178,17 @@ def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
-def undirected_data_generate(node_num, file_name):
+def data_generate(node_num, file_name, directed=False):
+    """ data generate by multiprocess
+    :param node_num: 
+        the number of node
+    :param file_name: 
+        file name must be 'r_1' like
+    :param directed: 
+        if True it's a directed graph
+    :return: 
+        see the output data in ./data/undirected or ./data/directed/
+    """
     import multiprocessing
     import os
     import json
@@ -267,9 +196,22 @@ def undirected_data_generate(node_num, file_name):
     start_time = time.time()
     r_s_is_count = {}
     count = 0
-    if os.path.exists('./data/undirected/node_{0}/{1}.json'.format(node_num, file_name)):
-        with open('./data/undirected/node_{0}/{1}.json'.format(node_num, file_name), 'r') as f:
+    if directed:
+        write_file = "./data/directed/node_{0}/"
+    else:
+        write_file = "./data/undirected/node_{0}/"
+
+    # make sure there is the directory
+    if not os.path.exists(write_file.format(node_num)):
+        os.mkdir(write_file.format(node_num))
+
+    write_file += '{1}.{2}'
+    # make sure there is the json file
+    if os.path.exists(write_file.format(node_num, file_name, 'json')):
+        with open(write_file.format(node_num, file_name, 'json'), 'r') as f:
+            # the dict will save  (r, s) => count
             local_dict = json.loads(f.read())
+            print('local dict restored finished')
 
         for rr_s in local_dict.keys():
             if local_dict[rr_s] > 500:
@@ -277,29 +219,34 @@ def undirected_data_generate(node_num, file_name):
                     r_s_is_count[rr_s] = 1
                     count += 1
     else:
+        # the dict will save  (r, s) => count, if not exiting, init it
         local_dict = {}
 
-    if os.path.exists('./data/undirected/node_{0}/{1}.csv'.format(node_num, file_name)):
-        df = pd.read_csv('./data/undirected/node_{0}/{1}.csv'.format(node_num, file_name), index_col=0)
+    # make sure there is the csv file
+    if os.path.exists(write_file.format(node_num, file_name, 'csv')):
+        # the df save all adjmatrixs which will reshape to a vector
+        df = pd.read_csv(write_file.format(node_num, file_name, 'csv'), index_col=0)
+        # is_used is a list for deduplicating
         is_used = df.iloc[:, :-2].values
+        print('is_used restored finished')
 
     else:
-
+        # features as columns to format the csv file
         features = [str(q) for q in range(node_num**2)]
         features = features.extend(['r', 's'])
         df = pd.DataFrame(columns=features)
         is_used = None
 
-    p = 0.4
+    p = 0.3  # the probability of the binominal graph
     pool = None
     print('init finish..')
 
     try:
         while 1:
-            pool = multiprocessing.Pool(8, init_worker)
+            pool = multiprocessing.Pool(4, init_worker)
             result = []
             for k in range(16):
-                adjmatrix = consensus_algo.NetworkAlgo(node_num, p, directed=True).adjMatrix
+                adjmatrix = consensus_algo.NetworkAlgo(node_num, p, directed=directed).adjMatrix
                 if is_used is not None and any((adjmatrix.reshape((-1, node_num**2)) == x).all() for x in is_used):
                     # print('continue...')
                     continue
@@ -321,7 +268,7 @@ def undirected_data_generate(node_num, file_name):
                     continue
                 rr_s = str(r_s)
                 if rr_s in local_dict:
-                    if local_dict[rr_s] > 500:
+                    if local_dict[rr_s] >= 500:
                         if rr_s not in r_s_is_count:
                             r_s_is_count[rr_s] = 1
                             count += 1
@@ -337,25 +284,25 @@ def undirected_data_generate(node_num, file_name):
             
             del pool
             del result
-
-            if count == 1:
-                p = 0.41
-            elif count == 2:
-                p = 0.42
-            elif count == 3:
-                p = 0.42
-            elif count == 4:
-                p = 0.46
-            elif count == 5:
-                p = 0.49
-            elif count == 6:
-                p = 0.49
-            elif count == 7:
-                p = 0.5
-            elif count == 8:
-                p = 0.51
-            elif count == 9:
-                1/0
+            #
+            # if count == 1:
+            #     p = 0.41
+            # elif count == 2:
+            #     p = 0.42
+            # elif count == 3:
+            #     p = 0.42
+            # elif count == 4:
+            #     p = 0.46
+            # elif count == 5:
+            #     p = 0.49
+            # elif count == 6:
+            #     p = 0.49
+            # elif count == 7:
+            #     p = 0.5
+            # elif count == 8:
+            #     p = 0.51
+            # elif count == 9:
+            #     1/0
 
     except Exception as e:
         print(traceback.print_exc())
@@ -363,13 +310,18 @@ def undirected_data_generate(node_num, file_name):
             pool.terminate()
             pool.join()
     finally:
-        df.to_csv("./data/undirected/node_{0}/{1}.csv".format(node_num, file_name))
-        with open("./data/undirected/node_{0}/{1}.json".format(node_num, file_name), 'wr') as f:
-            f.write(json.dumps(local_dict))
+        # for the case no keys
+        if len(local_dict.keys()) == 0:
+
+            pass
+        else:
+            df.to_csv(write_file.format(node_num, file_name, 'csv'))
+            with open(write_file.format(node_num, file_name, 'json'), 'wr') as f:
+                f.write(json.dumps(local_dict))
         print('finished, time:', time.time()-start_time)
 
 
-def test_data_generate():
+def data_generate_test():
     from CheckRobustness import determine_robustness2
     my_dict = {}
     is_used = None
@@ -397,5 +349,4 @@ def test_data_generate():
 
 
 if __name__ == '__main__':
-    # undirected_data_generate(10, 'r_1')
-    test_data_generate()
+    data_generate(5, 'r_2', True)

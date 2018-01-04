@@ -219,7 +219,9 @@ def determine_partial_robust(A, i):
                     return r, s
     return r, s
 
-
+def print_dict(local_dict):
+    for k in local_dict.keys():
+        print(k,'=>','|'*local_dict[k])
 if __name__ == '__main__':
     import consensus_algo
     #
@@ -272,19 +274,18 @@ if __name__ == '__main__':
     # print('one process time', time.time()-start)
     #
 
-    mm = consensus_algo.NetworkAlgo(vertex_num=10, p=0.95)
-    kk = determine_robustness2(mm.adjMatrix)
-    del mm
-    while kk != (5, 5):
+
+    local_dict = {}
+
+    while 1:
         mm = consensus_algo.NetworkAlgo(vertex_num=10, p=0.92)
         kk = determine_robustness2(mm.adjMatrix)
-        print('2->', kk)
-        kk = determine_robustness(mm.adjMatrix)
-        print('1->', kk)
-        if kk == (5, 4):
-            print(check_robustness(mm.adjMatrix, 5, 5))
-
-
+        if kk not in local_dict:
+            local_dict[kk] = 1
+        else:
+            local_dict[kk] += 1
+        print_dict(local_dict)
+        print('*'*75)
         del mm
 
 

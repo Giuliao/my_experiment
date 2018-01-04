@@ -1,22 +1,27 @@
 {
   "file_name_list": [
-    "./data/undirected/node_10/r_1.csv",
-    "./data/undirected/node_10/r_2.csv",
-    "./data/undirected/node_10/r_3.csv",
-    "./data/undirected/node_10/r_4.csv",
-    "./data/undirected/node_10/r_5.csv"
+    "./data/undirected/node_10/bfs_16_r_1.csv",
+    "./data/undirected/node_10/bfs_16_r_2.csv",
+    "./data/undirected/node_10/bfs_16_r_3.csv",
+    "./data/undirected/node_10/bfs_16_r_4.csv",
+    "./data/undirected/node_10/bfs_16_r_5.csv"
   ],
   "decay_steps": 200,
   "decay_rate": 0.99,
   "n_classes": 2,
-  "input_size": 100,
-  "image_size": 10,
+  "input_size": 160,
+  "image_size": 4,
   "channel": 10,
   "structure": {
     "structure": [
       "conv1",
+      "lrn1",
       "conv2",
-      "inception1"
+      "conv3",
+      "conv4",
+      "full1",
+      "full2",
+      "out_layer"
     ],
     "conv1": {
       "struct": [
@@ -24,21 +29,6 @@
         1,
         10,
         32
-      ],
-      "padding": "SAME",
-      "strides": [
-        1,
-        1,
-        1,
-        1
-      ]
-    },
-    "conv2": {
-      "struct": [
-        1,
-        3,
-        32,
-        64
       ],
       "padding": "VALID",
       "strides": [
@@ -48,87 +38,89 @@
         1
       ]
     },
-    "inception1": {
-      "structure": [
-        "structure1",
-        "structure2"
+    "lrn1": {
+      "depth_radius": 5,
+      "bias": 1,
+      "alpha": 1,
+      "beta": 0.5
+    },
+    "conv2": {
+      "struct": [
+        2,
+        2,
+        32,
+        64
       ],
-      "structure1": {
-        "structure": [
-          "full1",
-          "full2",
-          "out_layer"
-        ],
-        "full1": {
-          "struct": [
-            512,
-            128
-          ],
-          "dropout": false
-        },
-        "full2": {
-          "struct": [
-            128,
-            64
-          ],
-          "dropout": true
-        },
-        "out_layer": {
-          "struct": [
-            64,
-            1
-          ],
-          "act": "identity"
-        }
-      },
-      "structure2": {
-        "structure": [
-          "full1",
-          "full2",
-          "full3",
-          "out_layer"
-        ],
-        "full1": {
-          "struct": [
-            512,
-            256
-          ],
-          "dropout": false
-        },
-        "full2": {
-          "struct": [
-            256,
-            128
-          ],
-          "dropout": true
-        },
-        "full3": {
-          "struct": [
-            128,
-            64
-          ],
-          "dropout": false
-        },
-        "out_layer": {
-          "struct": [
-            64,
-            1
-          ],
-          "act": "identity"
-        }
-      }
+      "padding": "SAME",
+      "strides": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "conv3": {
+      "struct": [
+        4,
+        4,
+        64,
+        128
+      ],
+      "padding": "VALID",
+      "strides": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "conv4": {
+      "struct": [
+        1,
+        1,
+        128,
+        256
+      ],
+      "padding": "VALID",
+      "strides": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "full1": {
+      "struct": [
+        256,
+        128
+      ],
+      "dropout": false
+    },
+    "full2": {
+      "struct": [
+        128,
+        64
+      ],
+      "dropout": false
+    },
+    "out_layer": {
+      "struct": [
+        64,
+        2
+      ],
+      "act": "identity"
     }
   },
-  "test_path_to_log": "./logs/tensorboard_neighbor_info/test_10_node/",
-  "train_path_to_log": "./logs/tensorboard_neighbor_info/train_10_node/",
+  "test_path_to_log": "./logs/tensorboard_bfs_field_16/test_10_node/",
+  "train_path_to_log": "./logs/tensorboard_bfs_field_16/train_10_node/",
   "epochs": 1000,
-  "model_path": "./logs/saved_model/neighbor_info/",
+  "model_path": "./logs/saved_model/bfs_field_16/",
   "alpha": 500,
   "gamma": 1,
   "reg": 1,
   "beta": 1,
-  "keep_prob": 0.7,
-  "batch_size": 256,
+  "keep_prob": 1,
+  "batch_size": 1024,
   "learning_rate": 0.001,
   "display": 1
 }

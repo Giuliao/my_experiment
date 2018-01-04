@@ -76,17 +76,16 @@ class NeuralNetwork:
             self.sess.run(tf.global_variables_initializer())
 
     def _make_optimizer(self, loss):
-        local_step = tf.Variable(0, trainable=False, name='local_step')
-        with tf.name_scope('Optimizer'):
-            learning_rate = tf.train.exponential_decay(
-                learning_rate=self.learning_rate,
-                global_step=self.global_step,
-                decay_steps=self.decay_steps,
-                decay_rate=self.decay_rate,
-                staircase=True
-            )
-            optimize = tf.train.AdamOptimizer(learning_rate).minimize(loss, global_step=local_step)
-        return optimize
+        learning_rate = tf.train.exponential_decay(
+            learning_rate=self.learning_rate,
+            global_step=self.global_step,
+            decay_steps=self.decay_steps,
+            decay_rate=self.decay_rate,
+            staircase=True
+        )
+        optimize = tf.train.AdamOptimizer(learning_rate).minimize(loss, global_step=self.global_step)
+        # optimize = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+        return optimize, learning_rate
 
     def _make_loss(self):
         # loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.out, labels=self.target))
@@ -98,11 +97,11 @@ class NeuralNetwork:
             return ret
 
         with tf.name_scope('loss1'):
-            # loss1 = tf.reduce_sum(tf.pow(self.out[0][:, 0] - self.target[:, 0], 2))
-            loss1 = tf.reduce_sum(tf.pow(self.out[0] - self.target[:, 0], 2))
+            loss1 = tf.reduce_sum(tf.pow(self.out[0][:, 0] - self.target[:, 0], 2))
+            # loss1 = tf.reduce_sum(tf.pow(self.out[0] - self.target[:, 0], 2))
         with tf.name_scope('loss2'):
-            # loss2 = tf.reduce_sum(tf.pow(self.out[0][:, 1] - self.target[:, 1], 2))
-            loss2 = tf.reduce_sum(tf.pow(self.out[1] - self.target[:, 1], 2))
+            loss2 = tf.reduce_sum(tf.pow(self.out[0][:, 1] - self.target[:, 1], 2))
+            # loss2 = tf.reduce_sum(tf.pow(self.out[1] - self.target[:, 1], 2))
         return loss1, loss2
 
     def variable_summaries(self, var, name):
@@ -298,7 +297,8 @@ class NeuralNetwork:
                 if len(local_input.shape) != 4 or local_input.shape[-1] != dimension[-2]:
                     # [-1, filter_size, filter_size, channel_size]
                     # default [-1, self.image_size, self.image_size, self.channel]
-                    local_input = tf.reshape(local_input, [-1, 1, self.image_size, self.channel])
+                    local_input = tf.reshape(local_input, [-1, self.image_size, self.image_size, self.channel])
+
                 dimension = local_struct[layer_name]['struct']
 
                 local_input = self.conv2d(
@@ -393,27 +393,34 @@ class NeuralNetwork:
 
         with tf.name_scope('Loss'):
             self.loss, self.loss1 = self._make_loss()
+
         loss_summ = tf.summary.scalar("loss_r", self.loss)
         loss1_summ = tf.summary.scalar("loss_s", self.loss1)
-
         test_summ.append(loss1_summ)
         test_summ.append(loss_summ)
 
-        with tf.name_scope('Optimizer'):
-            self.optimizer = self._make_optimizer(self.loss)
+        with tf.name_scope('Optimizer_r'):
+            self.optimizer, _ = self._make_optimizer(self.loss)
 
-        with tf.name_scope('Optimizer1'):
-            self.optimizer1 = self._make_optimizer(self.loss1)
+        # learning_rate = tf.summary.scalar("learning_rate_r", _)
+        # test_summ.append(learning_rate)
+
+        with tf.name_scope('Optimizer_s'):
+            self.optimizer1, _1 = self._make_optimizer(self.loss1)
+
+        # learning_rate1 = tf.summary.scalar("learning_rate_s", _1)
+        # test_summ.append(learning_rate1)
 
         with tf.name_scope('Accuracy'):
             self.acc = self.get_accuracy()
+
         acc_r_summ = tf.summary.scalar("acc_r", self.acc[0])
         acc_s_summ = tf.summary.scalar("acc_s", self.acc[1])
         test_summ.append(acc_r_summ)
         test_summ.append(acc_s_summ)
 
         self.increment_global_step = tf.assign_add(self.global_step, 1, name='increment_global_step')
-        self.increment_epoch_step = tf.assign_add(self.epoch_step, 1, name='increment_global_step')
+        self.increment_epoch_step = tf.assign_add(self.epoch_step, 1, name='increment_epoch_step')
 
         self.train_merged_summary_op = tf.summary.merge(test_summ)
         self.test_merged_summary_op = tf.summary.merge(test_summ)
@@ -447,12 +454,12 @@ class NeuralNetwork:
     def get_accuracy(self):
         # correct = tf.equal(tf.argmax(self.out, 1), tf.argmax(self.target, 1))
 
-        # correct_r = tf.abs(self.out[0][:, 0] - self.target[:, 0]) < 0.5
-        correct_r = tf.abs(self.out[0] - self.target[:, 0]) < 0.5
+        correct_r = tf.abs(self.out[0][:, 0] - self.target[:, 0]) < 0.5
+        # correct_r = tf.abs(self.out[0] - self.target[:, 0]) < 0.5
         acc_r = tf.reduce_mean(tf.cast(correct_r, 'float'))
 
-        # correct_s = tf.abs(self.out[0][:, 1] - self.target[:, 1]) < 0.5
-        correct_s = tf.abs(self.out[1] - self.target[:, 1]) < 0.5
+        correct_s = tf.abs(self.out[0][:, 1] - self.target[:, 1]) < 0.5
+        # correct_s = tf.abs(self.out[1] - self.target[:, 1]) < 0.5
         acc_s = tf.reduce_mean(tf.cast(correct_s, 'float'))
         return acc_r, acc_s
 

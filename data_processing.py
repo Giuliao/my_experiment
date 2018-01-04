@@ -5,8 +5,8 @@ import pandas as pd
 import numpy as np
 import traceback
 import scipy
-from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
+from sklearn.model_selection import train_test_split
 from model import config
 
 
@@ -23,16 +23,18 @@ class DataGenerator:
         for local_file in self.file_name_list:
             pd_ll.append(pd.read_csv(local_file, header=0, index_col=0))
 
+        # the dataframe already sampled or random
         df = pd.concat(pd_ll)
-        # print(df.head())
-        # valid_X = df.iloc[:, : -self.n_classes].reset_index(drop=True)
-        # valid_Y = df.iloc[:, -self.n_classes:].reset_index(drop=True)
-        # train_X, test_X, train_Y, test_Y = train_test_split(valid_X, valid_Y, test_size=0.2)
 
-        train_X = df.iloc[:-4096, : -self.n_classes].reset_index(drop=True)
-        train_Y = df.iloc[:-4096, -self.n_classes:].reset_index(drop=True)
-        test_X = df.iloc[-4096:, : -self.n_classes].reset_index(drop=True)
-        test_Y = df.iloc[-4096:, -self.n_classes:].reset_index(drop=True)
+        # print(df.head())
+        valid_X = df.iloc[:, : -self.n_classes].reset_index(drop=True)
+        valid_Y = df.iloc[:, -self.n_classes:].reset_index(drop=True)
+        train_X, test_X, train_Y, test_Y = train_test_split(valid_X, valid_Y, test_size=0.3)
+
+        # train_X = df.iloc[:-4096, : -self.n_classes].reset_index(drop=True)
+        # train_Y = df.iloc[:-4096, -self.n_classes:].reset_index(drop=True)
+        # test_X = df.iloc[-4096:, : -self.n_classes].reset_index(drop=True)
+        # test_Y = df.iloc[-4096:, -self.n_classes:].reset_index(drop=True)
 
         print('=> train data size:', train_X.shape[0])
         print('=> test data size:', test_X.shape[0])
@@ -103,10 +105,11 @@ def test_image():
 
     con = config.Config()
     data = DataGenerator(con)
-    xedges = [_ / 7 for _ in range(-14, 15)]
-    yedges = [_ / 7 for _ in range(-14, 15)]
+    xedges = [_ / 4.6 for _ in range(-14, 15)]
+    yedges = [_ / 4.6 for _ in range(-14, 15)]
     image_data = {}
     for x, y in data.get_train_data(1):
+
         e, v = scipy.linalg.eigh(
             x.values.reshape((10, 10)))  # np.linalg.eig will return the complex data sometimes...
 
@@ -122,13 +125,21 @@ def test_image():
                     image_data[k][0].append(new_v[k])
                     image_data[k][1].append(new_v[k + 1])
 
-        for k in image_data.keys():
-            H, new_xedges, new_yedges = np.histogram2d(image_data[k][0], image_data[k][1], bins=(xedges, yedges))
-            print(H)
-            plt.imshow(H, cmap=plt.cm.gray, interpolation='nearest', origin='low',
-                       extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
-            plt.show()
+    for k in image_data.keys():
+        H, new_xedges, new_yedges = np.histogram2d(image_data[k][0], image_data[k][1], bins=(xedges, yedges))
+        print(H.shape)
+        plt.imshow(H.T, cmap=plt.cm.jet, interpolation='nearest', origin='low',
+                   extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
+        plt.show()
 
+
+def make_receptive_by_sub_graph():
+    df = pd.read_csv('./data/undirected/node_10/r_1.csv', index_col=0, header=0)
+    for i in range(df.shape[0]):
+        tt = df.iloc[i, :-2].values
+        tt = tt.reshape((10, 10))
+        print(tt)
 
 if __name__ == '__main__':
-   get_image_data()
+    # test_image()
+    make_receptive_by_sub_graph()
