@@ -58,11 +58,11 @@ class NeuralNetwork:
         self.sess = None
 
     def init_session(self, con):
-        # tf_config = tf.ConfigProto()
+        tf_config = tf.ConfigProto()
         # false meams fully occupied
-        # tf_config.gpu_options.allow_growth = False
-        # self.sess = tf.Session(config=tf_config)
-        self.sess = tf.Session()
+        tf_config.gpu_options.allow_growth = False
+        self.sess = tf.Session(config=tf_config)
+        # self.sess = tf.Session()
         self.train_writer = tf.summary.FileWriter(con.train_path_to_log, self.sess.graph)
         self.test_writer = tf.summary.FileWriter(con.test_path_to_log)
 
