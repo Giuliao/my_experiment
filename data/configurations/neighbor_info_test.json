@@ -94,7 +94,7 @@
         256,
         128
       ],
-      "dropout": false
+      "dropout": true
     },
     "full2": {
       "struct": [
@@ -119,8 +119,8 @@
   "gamma": 1,
   "reg": 1,
   "beta": 1,
-  "keep_prob": 1,
-  "batch_size": 1024,
+  "keep_prob": 0.7,
+  "batch_size": 2048,
   "learning_rate": 0.001,
   "display": 1
 }
