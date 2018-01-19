@@ -251,27 +251,18 @@ def init_directory(node_num, directed):
     return write_file
 
 
-def fine_tune(p, count):
+def fine_tune(p, node_num, count):
 
     try:
-        if count == 1:
-            p = 0.55
-        elif count == 2:
-            p = 0.6
-        elif count == 3:
-            p = 0.6
-        elif count == 4:
-            p = 0.7
-        elif count == 5:
-            p = 0.8
-        elif count == 6:
-            p = 0.8
-        elif count == 7:
-            p = 0.92
-        elif count == 8:
-            p = 0.95
-        elif count == 9:
-            1/0
+        for i in range(1, node_num):
+            if count == node_num-1:
+                1/0
+            elif count == i:
+                p += 1/node_num
+
+        if p > 1:
+            p = 0.99
+
     except ZeroDivisionError as e:
         raise e
 
@@ -296,7 +287,7 @@ def data_generate(node_num, file_name, directed=False):
     write_file = init_directory(node_num, directed)
     r_s_is_count, df, is_used, local_dict, count = init_file_variables(write_file, node_num, file_name, threshold)
     data_features = [str(i) for i in range(node_num ** 2)]
-    p = 0.5  # the probability of the binominal graph
+    p = 0.3  # the probability of the binominal graph
     pool = None
     # node_connectivity = local_wrapper(nx.node_connectivity)
     print('init finish..')
@@ -335,7 +326,7 @@ def data_generate(node_num, file_name, directed=False):
                 if r_s == 0:
                     continue
 
-                rr_s = str(r_s)
+                rr_s = 'k_'+str(r_s)
                 if rr_s in local_dict:
                     if local_dict[rr_s] >= threshold:
                         if rr_s not in r_s_is_count:
@@ -357,7 +348,7 @@ def data_generate(node_num, file_name, directed=False):
             del result
 
             # modify the probability according to the count
-            p = fine_tune(p, count)
+            p = fine_tune(p, node_num, count)
 
     except Exception as e:
         traceback.print_exc()
@@ -426,7 +417,7 @@ def k_connectivity_data_generate(directed=False):
 
     pool.close()
     pool.join()
-    #
+
     # for r in result:
     #     print(r.get())
     print('*'*75)
@@ -435,4 +426,5 @@ def k_connectivity_data_generate(directed=False):
     #     print(nx.node_connectivity(k.G))
 
 if __name__ == '__main__':
-    data_generate(10, 'k_5', True)
+    for i in range(10, 21):
+        data_generate(i, 'k_{0}'.format(i), True)
