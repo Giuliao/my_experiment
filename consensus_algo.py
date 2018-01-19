@@ -8,12 +8,12 @@ import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 import random
+import pandas as pd
+import threading
 import time
-random.seed(time.time())
 
 
 class NetworkAlgo(object):
-
     def __init__(self, vertex_num=5, p=0.5, directed=False, network_file=None, vertex_value_file=None, adjMatrix=None):
         """ the init constructor
         :param vertex_num: 
@@ -26,8 +26,9 @@ class NetworkAlgo(object):
             self.malicious_node
         """
         self.vertex_num = vertex_num
-        self.G = self.init_network(vertex_num, p,directed, network_file, adjMatrix)
-        self.adjMatrix = nx.adjacency_matrix(self.G).todense().view(np.ndarray).reshape(self.vertex_num, self.vertex_num)
+        self.G = self.init_network(vertex_num, p, directed, network_file, adjMatrix)
+        self.adjMatrix = nx.adjacency_matrix(self.G).todense().view(np.ndarray).reshape(self.vertex_num,
+                                                                                        self.vertex_num)
 
         self.init_vertex_value(self.G, vertex_value_file)
         self.malicious_node = []
@@ -87,12 +88,11 @@ class NetworkAlgo(object):
                         continue
 
                     for i in range(1, len(tt)):
-                        local_adjMatrix[int(tt[0])-1][int(tt[i])-1] = 1
+                        local_adjMatrix[int(tt[0]) - 1][int(tt[i]) - 1] = 1
 
             local_G = nx.from_numpy_matrix(local_adjMatrix)
 
         return local_G
-
 
     @staticmethod
     def init_vertex_value(local_G, file_name=None):
@@ -109,8 +109,6 @@ class NetworkAlgo(object):
         """
         # if not isinstance(local_G, nx.DiGraph):
         #     return False
-
-
         if not file_name:
             for v in local_G.nodes():
                 local_G.node[v]['value'] = [random.uniform(0.0, 1.0)]
@@ -161,7 +159,6 @@ class NetworkAlgo(object):
 
 
 class ArcpAlgo(NetworkAlgo):
-
     def __init__(self, vertex_num=5, p=0.9, network_file=None, vertex_value_file=None, adjmatrix=None):
         """
         :param vertex_num: 
@@ -218,14 +215,14 @@ class ArcpAlgo(NetworkAlgo):
                 self.arcp(v, f_local, it)
         print('ok arcp')
         print(self.adjMatrix)
-        print('-'*100)
+        print('-' * 100)
         for y in self.G.nodes():
-            print(str(y)+':', self.G.node[y]['value'])
+            print(str(y) + ':', self.G.node[y]['value'])
         self.show_network()
         self.show_consensus(f_local, iter_time)
 
     def show_consensus(self, f_local, iter_time):
-        x = range(iter_time+1)
+        x = range(iter_time + 1)
         import time
         plt.figure(time.time())
         plt.title('arcp with f-local=%d' % f_local)
@@ -250,10 +247,11 @@ class McaAlgo(NetworkAlgo):
         neighbors_value.sort()
         ll = len(neighbors_value)
         if ll % 2 == 0:
-            median = int((neighbors_value[len(neighbors_value)//2] + neighbors_value[(len(neighbors_value)//2)-1])/2)
+            median = int(
+                (neighbors_value[len(neighbors_value) // 2] + neighbors_value[(len(neighbors_value) // 2) - 1]) / 2)
         else:
-            median = neighbors_value[ll//2]
-        self.G.node[v]['value'].append(w1*self.G.node[v]['value'][iter_time]+w2*median)
+            median = neighbors_value[ll // 2]
+        self.G.node[v]['value'].append(w1 * self.G.node[v]['value'][iter_time] + w2 * median)
 
     def run_median_consensus_algo(self, iter_time):
         for it in range(iter_time):
@@ -277,10 +275,7 @@ class McaAlgo(NetworkAlgo):
         plt.show()
 
 
-
-
 def main():
-
     # test = ArcpAlgo(10, 0.5)
     # test.set_malicious_node({2: 2.0})
     # test.run_arcp(1, 100)

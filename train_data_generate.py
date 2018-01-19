@@ -6,9 +6,12 @@ import CheckRobustness
 import numpy as np
 import pandas as pd
 import time
-import math
+import multiprocessing
+import os
+import json
 import traceback
 import signal
+import networkx as nx
 
 
 def print_dict(local_dict):
@@ -178,6 +181,103 @@ def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
+def init_file_variables(write_file, node_num, file_name, threshold):
+    """ initialize some parameters
+    :param write_file: 
+    :param node_num: 
+    :param file_name: 
+    :param threshold: 
+        the threshold of number of different graph
+    :return: 
+        r_s_is_count: record the number of graph is more than threshold 
+        df: data frame read from a file
+        is_used: whether the matrix used 
+        local_dict: count the number of every r_s
+        count: the total number of r_s_is_count 
+    """
+
+    r_s_is_count = {}
+    count = 0
+    labels_size = 1 # attention here need to change
+    labels_feature = ['k'] # attention here need to change
+
+    # make sure there is the json file
+    if os.path.exists(write_file.format(node_num, file_name, 'json')):
+        with open(write_file.format(node_num, file_name, 'json'), 'r') as f:
+            # the dict will save  (r, s) => count
+            local_dict = json.loads(f.read())
+            print('local dict restored finished')
+
+        for rr_s in local_dict.keys():
+            if local_dict[rr_s] >= threshold:
+                if rr_s not in r_s_is_count:
+                    r_s_is_count[rr_s] = 1
+                    count += 1
+    else:
+        # the dict will save  (r, s) => count,
+        # if not exiting, init it
+        local_dict = {}
+
+    # make sure there is the csv file
+    if os.path.exists(write_file.format(node_num, file_name, 'csv')):
+        # the df save all adjmatrixs which will reshape to a vector
+        df = pd.read_csv(write_file.format(node_num, file_name, 'csv'), index_col=0)
+        # is_used is a numpy array for deduplicating
+        is_used = df.iloc[:, :-labels_size].values
+        print('is_used restored finished')
+
+    else:
+        # features as columns to format the csv file
+        features = [str(q) for q in range(node_num**2)]
+        features.extend(labels_feature)
+        df = pd.DataFrame(columns=features)
+        is_used = None
+
+    return r_s_is_count, df, is_used, local_dict, count
+
+
+def init_directory(node_num, directed):
+    if directed:
+        write_file = "./data/k_connectivity/directed/node_{0}/"
+    else:
+        write_file = "./data/k_connectivity/undirected/node_{0}/"
+
+    # make sure there exists the directory
+    if not os.path.exists(write_file.format(node_num)):
+        os.mkdir(write_file.format(node_num))
+
+    write_file += '{1}.{2}'
+
+    return write_file
+
+
+def fine_tune(p, count):
+
+    try:
+        if count == 1:
+            p = 0.55
+        elif count == 2:
+            p = 0.6
+        elif count == 3:
+            p = 0.6
+        elif count == 4:
+            p = 0.7
+        elif count == 5:
+            p = 0.8
+        elif count == 6:
+            p = 0.8
+        elif count == 7:
+            p = 0.92
+        elif count == 8:
+            p = 0.95
+        elif count == 9:
+            1/0
+    except ZeroDivisionError as e:
+        raise e
+
+    return p
+
+
 def data_generate(node_num, file_name, directed=False):
     """ data generate by multiprocess
     :param node_num: 
@@ -189,64 +289,26 @@ def data_generate(node_num, file_name, directed=False):
     :return: 
         see the output data in ./data/undirected or ./data/directed/
     """
-    import multiprocessing
-    import os
-    import json
-
     start_time = time.time()
-    r_s_is_count = {}
-    count = 0
-    if directed:
-        write_file = "./data/directed/node_{0}/"
-    else:
-        write_file = "./data/undirected/node_{0}/"
 
-    # make sure there is the directory
-    if not os.path.exists(write_file.format(node_num)):
-        os.mkdir(write_file.format(node_num))
-
-    write_file += '{1}.{2}'
-    # make sure there is the json file
-    if os.path.exists(write_file.format(node_num, file_name, 'json')):
-        with open(write_file.format(node_num, file_name, 'json'), 'r') as f:
-            # the dict will save  (r, s) => count
-            local_dict = json.loads(f.read())
-            print('local dict restored finished')
-
-        for rr_s in local_dict.keys():
-            if local_dict[rr_s] > 500:
-                if rr_s not in r_s_is_count:
-                    r_s_is_count[rr_s] = 1
-                    count += 1
-    else:
-        # the dict will save  (r, s) => count, if not exiting, init it
-        local_dict = {}
-
-    # make sure there is the csv file
-    if os.path.exists(write_file.format(node_num, file_name, 'csv')):
-        # the df save all adjmatrixs which will reshape to a vector
-        df = pd.read_csv(write_file.format(node_num, file_name, 'csv'), index_col=0)
-        # is_used is a list for deduplicating
-        is_used = df.iloc[:, :-2].values
-        print('is_used restored finished')
-
-    else:
-        # features as columns to format the csv file
-        features = [str(q) for q in range(node_num**2)]
-        features = features.extend(['r', 's'])
-        df = pd.DataFrame(columns=features)
-        is_used = None
-
-    p = 0.3  # the probability of the binominal graph
+    # initialize
+    threshold = 200
+    write_file = init_directory(node_num, directed)
+    r_s_is_count, df, is_used, local_dict, count = init_file_variables(write_file, node_num, file_name, threshold)
+    data_features = [str(i) for i in range(node_num ** 2)]
+    p = 0.5  # the probability of the binominal graph
     pool = None
+    # node_connectivity = local_wrapper(nx.node_connectivity)
     print('init finish..')
 
     try:
         while 1:
             pool = multiprocessing.Pool(4, init_worker)
             result = []
+            network_objects = []
             for k in range(16):
-                adjmatrix = consensus_algo.NetworkAlgo(node_num, p, directed=directed).adjMatrix
+                mm = consensus_algo.NetworkAlgo(node_num, p, directed=directed)
+                adjmatrix = mm.adjMatrix
                 if is_used is not None and any((adjmatrix.reshape((-1, node_num**2)) == x).all() for x in is_used):
                     # print('continue...')
                     continue
@@ -255,20 +317,27 @@ def data_generate(node_num, file_name, directed=False):
                         is_used = adjmatrix.reshape((-1, node_num**2))
                     else:
                         is_used = np.vstack((is_used, adjmatrix.reshape((-1, node_num**2))))
+
+                    network_objects.append(pd.DataFrame(adjmatrix.reshape(-1, node_num ** 2),
+                                                        columns=data_features))
                 # print(k)
-                result.append(pool.apply_async(CheckRobustness.determine_robustness_multi_process, (adjmatrix,)))
+                # result.append(pool.apply_async(CheckRobustness.determine_robustness_multi_process, (adjmatrix,)))
+                result.append(pool.apply_async(nx.node_connectivity, (mm.G,)))
 
             pool.close()
             pool.join()
 
-            for r in result:
-                tt, r_s = r.get()
+            for r, tt in zip(result, network_objects):
+                r_s = r.get()
 
-                if r_s[0] != int(file_name.split('_')[1]):
+                # if r_s[0] != int(file_name.split('_')[1]):
+                #     continue
+                if r_s == 0:
                     continue
+
                 rr_s = str(r_s)
                 if rr_s in local_dict:
-                    if local_dict[rr_s] >= 500:
+                    if local_dict[rr_s] >= threshold:
                         if rr_s not in r_s_is_count:
                             r_s_is_count[rr_s] = 1
                             count += 1
@@ -277,42 +346,28 @@ def data_generate(node_num, file_name, directed=False):
                 else:
                     local_dict[rr_s] = 1      
 
-                df = df.append(tt.join(pd.DataFrame(np.array(r_s, dtype=np.int).reshape(-1, 2), columns=['r', 's'])))
+                # df = df.append(tt.join(pd.DataFrame(np.array(r_s, dtype=np.int).reshape(-1, 2), columns=['r', 's'])))
+                df = df.append(tt.join(pd.DataFrame(np.array(r_s, dtype=np.int).reshape(-1, 1), columns=['k'])))
             print_dict(local_dict)
             print(count)
             print('*'*75)
             
-            del pool
+            # del pool  # del will delete the variable completely, no None here
+            del network_objects
             del result
-            #
-            # if count == 1:
-            #     p = 0.41
-            # elif count == 2:
-            #     p = 0.42
-            # elif count == 3:
-            #     p = 0.42
-            # elif count == 4:
-            #     p = 0.46
-            # elif count == 5:
-            #     p = 0.49
-            # elif count == 6:
-            #     p = 0.49
-            # elif count == 7:
-            #     p = 0.5
-            # elif count == 8:
-            #     p = 0.51
-            # elif count == 9:
-            #     1/0
+
+            # modify the probability according to the count
+            p = fine_tune(p, count)
 
     except Exception as e:
-        print(traceback.print_exc())
+        traceback.print_exc()
+        # for the case keyboard interrupt
         if pool is not None:
             pool.terminate()
             pool.join()
     finally:
         # for the case no keys
         if len(local_dict.keys()) == 0:
-
             pass
         else:
             df.to_csv(write_file.format(node_num, file_name, 'csv'))
@@ -348,5 +403,36 @@ def data_generate_test():
         del mm
 
 
+def local_wrapper(func):
+    def inner(**kwargs):
+        adjmatrix = kwargs.get('adjmatrix', None)
+        network_G = kwargs.get('G', None)
+        print("hell0")
+        func(network_G)
+        return adjmatrix, func
+    return inner
+
+
+def k_connectivity_data_generate(directed=False):
+
+    pool = multiprocessing.Pool(4)
+    result = []
+    objs = []
+    node_connectivity = local_wrapper(nx.node_connectivity)
+    for k in range(16):
+        mm = consensus_algo.NetworkAlgo(vertex_num=5, p=0.5, directed=directed)
+        objs.append(mm)
+        result.append(pool.apply_async(node_connectivity, {'G': mm.G, 'adjmatrix': mm.adjMatrix}))
+
+    pool.close()
+    pool.join()
+    #
+    # for r in result:
+    #     print(r.get())
+    print('*'*75)
+
+    # for k in objs:
+    #     print(nx.node_connectivity(k.G))
+
 if __name__ == '__main__':
-    data_generate(5, 'r_2', True)
+    data_generate(10, 'k_5', True)

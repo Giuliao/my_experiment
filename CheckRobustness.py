@@ -1,24 +1,4 @@
 # -*-coding:utf-8 -*-
-# data can be viewed in assets/1.png:
-# 0 0 0 0 1 1 1 0
-# 0 0 0 1 1 1 0 1
-# 0 0 0 1 1 0 1 1
-# 0 1 1 0 0 0 0 1
-# 1 1 1 0 0 1 1 1
-# 1 1 0 0 1 0 1 1
-# 1 0 1 0 1 1 0 1
-# 0 1 1 1 1 1 1 0
-
-# result:
-# no remove, (3, 1)-robust
-# if remove node1, (3, 1)-robust
-# if remove node2, (2, 3)-robust
-# if remove node3, (2, 7)-robust
-# if remove node4, (3, 1)-robust
-# if remove node5, (2, 2)-robust
-# if remove node6, (2, 2)-robust
-# if remove node7, (2, 3)-robust
-# if remove node8, (2, 1)-robust
 from __future__ import print_function
 import numpy as np
 import itertools
@@ -44,7 +24,7 @@ def robust_holds(A, S1, S2, r, s):
         for i in S:
             t = 0  # count for the node that owns the neighbors outside S
             for j in range(A.shape[0]):
-                if A[j][i-1] != 0 and (j+1) not in S:
+                if A[j][i - 1] != 0 and (j + 1) not in S:
                     t += 1
             if t >= r:
                 ss += 1
@@ -54,14 +34,14 @@ def robust_holds(A, S1, S2, r, s):
     if calc_reachable(S1) == len(S1) \
             or calc_reachable(S2) == len(S2) \
             or calc_reachable(S1) + calc_reachable(S2) >= s:
-            isRSRobust = True
+        isRSRobust = True
 
     return isRSRobust
 
 
 def nonempty_subset(l):
-    ll = len(l)//2
-    for i in range(1, ll+1):
+    ll = len(l) // 2
+    for i in range(1, ll + 1):
         for S1 in itertools.combinations(l, i):
             yield S1, tuple([val for val in l if val not in S1])
 
@@ -69,8 +49,8 @@ def nonempty_subset(l):
 def check_robustness(A, r, s):
     isRSRobust = True
     n = A.shape[0]
-    for k in range(2, n+1):
-        for K in itertools.combinations(range(1, n+1), k):
+    for k in range(2, n + 1):
+        for K in itertools.combinations(range(1, n + 1), k):
             for S1, S2 in nonempty_subset(K):
                 if not robust_holds(A, S1, S2, r, s):
                     isRSRobust = False
@@ -89,11 +69,10 @@ def calc_in_degree(local_A):
 
 
 def determine_robustness_multi_process(A):
-
     r = min(calc_in_degree(A))
-    r = min(r, int(math.ceil(A.shape[0]*1.0/2.0)))
+    r = min(r, int(math.ceil(A.shape[0] * 1.0 / 2.0)))
     s = A.shape[0]
-    n = A.shape[0] # the number of vertex
+    n = A.shape[0]  # the number of vertex
     for k in range(2, n + 1):
         for K in itertools.combinations(range(1, n + 1), k):
             for S1, S2 in nonempty_subset(K):
@@ -109,8 +88,9 @@ def determine_robustness_multi_process(A):
                         r -= 1
                         s = n
                 if r == 0:
-                    return pd.DataFrame(A.reshape(-1, n*n), columns=[str(i) for i in range(n*n)]), (r, s)
-    return pd.DataFrame(A.reshape(-1, n*n), columns=[str(i) for i in range(n*n)]), (r, s)
+                    return pd.DataFrame(A.reshape(-1, n * n), columns=[str(i) for i in range(n * n)]), (r, s)
+    return pd.DataFrame(A.reshape(-1, n * n), columns=[str(i) for i in range(n * n)]), (r, s)
+
 
 def determine_robustness(A):
     """the func is the same as determine_robustness
@@ -118,9 +98,9 @@ def determine_robustness(A):
     :return: 
     """
     r = min(calc_in_degree(A))
-    r = min(r, int(math.ceil(A.shape[0]*1.0/2.0)))
+    r = min(r, int(math.ceil(A.shape[0] * 1.0 / 2.0)))
     s = A.shape[0]
-    n = A.shape[0] # the number of vertex
+    n = A.shape[0]  # the number of vertex
     for k in range(2, n + 1):
         for K in itertools.combinations(range(1, n + 1), k):
             for S1, S2 in nonempty_subset(K):
@@ -152,16 +132,15 @@ def determine_partial_robust2(A, i):
     :return: 
         r, s
     """
-    flag = 1    # set the upper bound of the K set
+    flag = 1  # set the upper bound of the K set
     if i:
-        A = np.delete(np.delete(A, i-1, 0), i-1, 1)  # !!!this part is different from the paper
+        A = np.delete(np.delete(A, i - 1, 0), i - 1, 1)  # !!!this part is different from the paper
         flag = 0
     # print A
     r = min(calc_in_degree(A))
     r = min(r, int(math.ceil(A.shape[0] * 1.0 / 2.0)))
     s = A.shape[0]
     n = A.shape[0]  # the number of vertex
-
 
     # partition the set with k nodes, k at least 2 because of for 1-robust
     for k in range(2, n + flag):
@@ -219,11 +198,15 @@ def determine_partial_robust(A, i):
                     return r, s
     return r, s
 
+
 def print_dict(local_dict):
     for k in local_dict.keys():
-        print(k,'=>','|'*local_dict[k])
+        print(k, '=>', '|' * local_dict[k])
+
+
 if __name__ == '__main__':
     import consensus_algo
+
     #
     # pool = multiprocessing.Pool(processes=5)
     #
@@ -285,7 +268,5 @@ if __name__ == '__main__':
         else:
             local_dict[kk] += 1
         print_dict(local_dict)
-        print('*'*75)
+        print('*' * 75)
         del mm
-
-
