@@ -252,13 +252,13 @@ def init_directory(node_num, directed):
 
 
 def fine_tune(p, node_num, count):
-
+    base = 0.3
     try:
         for i in range(1, node_num):
             if count == node_num-1:
                 1/0
             elif count == i:
-                p += 1/node_num
+                p = base + count*1/node_num
 
         if p > 1:
             p = 0.99
@@ -294,7 +294,7 @@ def data_generate(node_num, file_name, directed=False):
 
     try:
         while 1:
-            pool = multiprocessing.Pool(4, init_worker)
+            pool = multiprocessing.Pool(16, init_worker)
             result = []
             network_objects = []
             for k in range(16):
