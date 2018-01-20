@@ -120,6 +120,9 @@ class Config:
             self.num_epochs = 50
             self.stddev = 0.01
             self.verbose = 0
+            self.acc_name_list = ["acc_r", "acc_s"]
+            self.optimizer_name_list = ["optimizer_r", "opimizer_s"]
+            self.loss_name_list = ["loss_r", "loss_s"]
         else:
             with open(json_file, 'r') as f:
                 json_dict = json.loads(f.read())
@@ -143,6 +146,11 @@ class Config:
 
                 self.batch_size = json_dict['batch_size']
                 self.learning_rate = json_dict['learning_rate']
+
+                self.acc_name_list = json_dict["acc_name_list"]
+                self.optimizer_name_list = json_dict["optimizer_name_list"]
+                self.loss_name_list = json_dict["loss_name_list"]
+
                 print('=> json file read finished...')
 
 

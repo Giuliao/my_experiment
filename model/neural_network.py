@@ -38,21 +38,24 @@ class NeuralNetwork:
         self.decay_steps = con.decay_steps
         self.decay_rate = con.decay_rate
         self.model_path = con.model_path
+
+        self.acc_name_list = con.acc_name_list
+        self.optimizer_name_list = con.optimizer_name_list
+        self.loss_name_list = con.loss_name_list
+
         # self.path_to_save_predict = con.path_to_save_predict
 
         self.input = None
-        self.out = []
         self.target = None
+        self.out = []
+        self.optimizer = []
+        self.loss = []
+        self.acc = []
         self.keep_prob = None
         self.epoch_step = None
-        self.increment_epoch_step = None
         self.global_step = None
+        self.increment_epoch_step = None
         self.increment_global_step = None
-        self.optimizer = None
-        self.optimizer1 = None
-        self.loss = None
-        self.loss1 = None
-        self.acc = None
         self.train_merged_summary_op = None
         self.test_merged_summary_op = None
         self.sess = None
@@ -75,7 +78,8 @@ class NeuralNetwork:
         else:
             self.sess.run(tf.global_variables_initializer())
 
-    def _make_optimizer(self, loss):
+    def _make_optimizer(self, loss, name):
+
         learning_rate = tf.train.exponential_decay(
             learning_rate=self.learning_rate,
             global_step=self.global_step,
@@ -83,11 +87,12 @@ class NeuralNetwork:
             decay_rate=self.decay_rate,
             staircase=True
         )
-        optimize = tf.train.AdamOptimizer(learning_rate).minimize(loss, global_step=self.global_step)
-        # optimize = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+        with tf.name_scope(name):
+            optimize = tf.train.AdamOptimizer(learning_rate).minimize(loss, global_step=self.global_step)
+            # optimize = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
         return optimize, learning_rate
 
-    def _make_loss(self):
+    def _make_loss(self, output, target, name, regression=True):
         # loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.out, labels=self.target))
         # loss3 = self.reg_lambda*get_reg_loss(self.W, self.b)
         # loss = self.alpha*loss1 + self.beta*loss2 + loss3*self.reg_lambda
@@ -96,13 +101,25 @@ class NeuralNetwork:
             ret = ret + tf.add_n([tf.nn.l2_loss(b) for b in biases.values()])
             return ret
 
-        with tf.name_scope('loss1'):
-            loss1 = tf.reduce_sum(tf.pow(self.out[0][:, 0] - self.target[:, 0], 2))
-            # loss1 = tf.reduce_sum(tf.pow(self.out[0] - self.target[:, 0], 2))
-        with tf.name_scope('loss2'):
-            loss2 = tf.reduce_sum(tf.pow(self.out[0][:, 1] - self.target[:, 1], 2))
-            # loss2 = tf.reduce_sum(tf.pow(self.out[1] - self.target[:, 1], 2))
-        return loss1, loss2
+        with tf.name_scope(name):
+            if regression:
+                loss = tf.reduce_sum(tf.pow(output - target, 2))
+            else:
+                loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=target))
+
+        return loss
+
+    def get_accuracy(self, output, target, name, regression=True):
+        with tf.name_scope(name):
+            if regression:
+                correct = (tf.abs(output - target) < 0.5)
+
+            else:
+                correct = tf.equal(tf.argmax(output, 1), tf.argmax(target, 1))
+
+            acc = tf.reduce_mean(tf.cast(correct, 'float'))
+
+        return acc
 
     def variable_summaries(self, var, name):
         """
@@ -248,22 +265,19 @@ class NeuralNetwork:
         """make computing graph by parsing the local_struct recursively.
         
          read the definition of a network from a json file, 
-        'parallel', constrcut network parallelly.
+        'inception', constrcut network parallelly.
         'cnn', construct a cnn layer.
         'pool', construct a pool layer.
         
         :param local_input: 
         :param local_struct: 
         :return: 
-            a tensor or a list
+            a tensor
         """
 
         for i in range(len(local_struct['structure'])):
             # a struct contains layer name for reading layers by order
             layer_name = local_struct['structure'][i]
-            # parallel layer, includes parallel_layer1,...,
-            # parallel_layern and parallel_out_layer
-            # parallel_out_layer will not concatenate the tensor
             if 'inception' in layer_name:
                 with tf.name_scope(layer_name):
                     if "image_size" in local_struct[layer_name]:
@@ -370,7 +384,12 @@ class NeuralNetwork:
                     layer_name,
                     act=self.activate_func[local_struct[layer_name]['act']]
                 )
-                self.out.append(local_input)
+                if 'tear' in layer_name:
+                    for i in range(len(self.optimizer_name_list)):
+                        self.out.append(tf.slice(local_input, [0, i], [-1, 1]))
+                else:
+                    self.out.append(local_input)
+
                 local_input = None
 
         return local_input
@@ -381,7 +400,6 @@ class NeuralNetwork:
         """
 
         test_summ = []
-
         self.input = tf.placeholder(tf.float32, [None, self.input_size], name='input')
         self.target = tf.placeholder(tf.float32, [None, self.n_classes], name='labels')
         self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
@@ -392,32 +410,35 @@ class NeuralNetwork:
             self._make_computing_graph(self.input, self.struct)
 
         with tf.name_scope('Loss'):
-            self.loss, self.loss1 = self._make_loss()
+            # here 'for' step need to optimize, when self.out[index].shape != 1
+            for index in range(len(self.out)):
+                self.loss.append(self._make_loss(self.out[index],
+                                                 tf.slice(self.target, [0, index], [-1, self.out[index].shape[1]]),
+                                                 self.loss_name_list[index]))
 
-        loss_summ = tf.summary.scalar("loss_r", self.loss)
-        loss1_summ = tf.summary.scalar("loss_s", self.loss1)
-        test_summ.append(loss1_summ)
-        test_summ.append(loss_summ)
+        loss_summ = []
+        for index, name in enumerate(self.loss_name_list):
+            loss_summ.append(tf.summary.scalar(name, self.loss[index]))
+        test_summ.extend(loss_summ)
 
-        with tf.name_scope('Optimizer_r'):
-            self.optimizer, _ = self._make_optimizer(self.loss)
-
-        # learning_rate = tf.summary.scalar("learning_rate_r", _)
-        # test_summ.append(learning_rate)
-
-        with tf.name_scope('Optimizer_s'):
-            self.optimizer1, _1 = self._make_optimizer(self.loss1)
-
-        # learning_rate1 = tf.summary.scalar("learning_rate_s", _1)
-        # test_summ.append(learning_rate1)
+        # learning_rate_name = ['learning_rate_k']
+        with tf.name_scope('Optimizer'):
+            for index in range(len(self.loss)):
+                optimizer, _ = self._make_optimizer(self.loss[index],
+                                                    self.optimizer_name_list[index])
+                self.optimizer.append(optimizer)
 
         with tf.name_scope('Accuracy'):
-            self.acc = self.get_accuracy()
+            # here 'for' step need to optimize, when self.out[index].shape != 1
+            for index in range(len(self.out)):
+                    self.acc.append(self.get_accuracy(self.out[index],
+                                                      tf.slice(self.target, [0, index], [-1, self.out[index].shape[1]]),
+                                                      self.acc_name_list[index]))
 
-        acc_r_summ = tf.summary.scalar("acc_r", self.acc[0])
-        acc_s_summ = tf.summary.scalar("acc_s", self.acc[1])
-        test_summ.append(acc_r_summ)
-        test_summ.append(acc_s_summ)
+        acc_summ = []
+        for index, name in enumerate(self.acc_name_list):
+            acc_summ.append(tf.summary.scalar(name, self.acc[index]))
+        test_summ.extend(acc_summ)
 
         self.increment_global_step = tf.assign_add(self.global_step, 1, name='increment_global_step')
         self.increment_epoch_step = tf.assign_add(self.epoch_step, 1, name='increment_epoch_step')
@@ -451,18 +472,6 @@ class NeuralNetwork:
         ret_list = self.sess.run(ops, feed_dict=feed_dict)
         return ret_list
 
-    def get_accuracy(self):
-        # correct = tf.equal(tf.argmax(self.out, 1), tf.argmax(self.target, 1))
-
-        correct_r = tf.abs(self.out[0][:, 0] - self.target[:, 0]) < 0.5
-        # correct_r = tf.abs(self.out[0] - self.target[:, 0]) < 0.5
-        acc_r = tf.reduce_mean(tf.cast(correct_r, 'float'))
-
-        correct_s = tf.abs(self.out[0][:, 1] - self.target[:, 1]) < 0.5
-        # correct_s = tf.abs(self.out[1] - self.target[:, 1]) < 0.5
-        acc_s = tf.reduce_mean(tf.cast(correct_s, 'float'))
-        return acc_r, acc_s
-
     def get_W(self):
         return self.sess.run(self.W)
 
@@ -484,47 +493,51 @@ class NeuralNetwork:
         test_X, test_Y = input_data.get_test_data()
         ss = self.sess.run(self.epoch_step)
         step = self.sess.run(self.global_step)
-        train_ops = [self.loss, self.loss1, self.out, self.train_merged_summary_op, self.optimizer, self.optimizer1,
-                     self.increment_global_step]
+        train_ops = [self.loss, self.train_merged_summary_op, self.target, self.out, self.optimizer, self.increment_global_step]
         test_ops = [self.test_merged_summary_op]
         try:
             for k in range(ss, self.epochs):
-                epoch_loss = 0
-                epoch_loss1 = 0
-                epoch_acc_r = 0
-                epoch_acc_s = 0
+                epoch_loss = [0.0]*len(self.loss)
+                epoch_acc = [0.0]*len(self.loss)
+                test_acc = [0.0]*len(self.loss)
                 number_of_batch = 0
                 for train_X, train_Y in input_data.get_train_data(self.batch_size):
                     # train_X, test_X, train_Y, test_Y = train_test_split(train_X, train_Y, test_size=0.2)
-                    cost, cost1, predic, summ = self.fit(train_X=train_X, train_Y=train_Y, keep_prob=self.my_keep_prob,
-                                                         ops=train_ops)[:4]
-                    epoch_acc_r += self.fit(ops=self.acc[0], train_X=train_X, train_Y=train_Y, keep_prob=1.0)
-                    epoch_acc_s += self.fit(ops=self.acc[1], train_X=train_X, train_Y=train_Y, keep_prob=1.0)
+                    cost, summ, target, predict = self.fit(train_X=train_X, train_Y=train_Y,
+                                                  keep_prob=self.my_keep_prob, ops=train_ops)[:4]
+
+                    for index in range(len(cost)):
+                        epoch_loss[index] += cost[index]
+
+                    for index in range(len(self.acc)):
+                        epoch_acc[index] += self.fit(ops=self.acc[index], train_X=train_X, train_Y=train_Y, keep_prob=1.0)
+
                     # print(predic) # debug
                     # print(len(predic))
-                    epoch_loss += cost
-                    epoch_loss1 += cost1
                     self.train_writer.add_summary(summ, step)
-                    self.global_step += 1
                     step += 1
                     number_of_batch += 1
 
-                # summ = self.fit(ops=test_ops, train_X=test_X, train_Y=test_Y, keep_prob=1.0)[0]
-                test_acc_r = self.fit(ops=self.acc[0], train_X=test_X, train_Y=test_Y, keep_prob=1.0)
-                test_acc_s = self.fit(ops=self.acc[1], train_X=test_X, train_Y=test_Y, keep_prob=1.0)
-                # self.test_writer.add_summary(summ, k)
+                for index in range(len(self.acc)):
+                    test_acc[index] = self.fit(ops=self.acc[index], train_X=test_X, train_Y=test_Y, keep_prob=1.0)
+
+                summ = self.fit(ops=test_ops, train_X=test_X, train_Y=test_Y, keep_prob=1.0)[0]
+                self.test_writer.add_summary(summ, k)
                 self.sess.run(self.increment_epoch_step)
                 print('epoch => ', k + 1)
-                print('average loss_r => %f, average loss_s => %f' % (
-                    epoch_loss / number_of_batch, epoch_loss1 / number_of_batch))
-                print('average acc_r=> %.2f%%, average acc_s => %.2f%%' % (
-                    epoch_acc_r / number_of_batch * 100, epoch_acc_s / number_of_batch * 100))
-                print('test acc_r=> %.2f%%, test acc_s => %.2f%%' % (test_acc_r * 100, test_acc_s * 100))
-                # print(predic)
-                # print(train_Y)
+                for index in range(len(self.loss)):
+                    print('average %s => %f' % (self.loss_name_list[index], epoch_loss[index] / number_of_batch))
+                    print('average %s => %.2f%%' % (self.acc_name_list[index], epoch_acc[index] / number_of_batch * 100))
+                    print('test %s => %.2f%%' % (self.acc_name_list[index], test_acc[index] * 100))
+
+                print()
+
+                del epoch_loss
+                del epoch_acc
+                del test_acc
+                del number_of_batch
 
             print('=> mission complete')
-
         except Exception as e:
             traceback.print_exc()
             self.close()

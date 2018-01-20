@@ -1,0 +1,109 @@
+{
+  "file_name_list": [
+    "./data/k_connectivity/directed/node_14/k_14.csv"
+  ],
+  "decay_steps": 200,
+  "decay_rate": 0.99,
+  "n_classes": 1,
+  "input_size": 196,
+  "image_size": 10,
+  "channel": 1,
+  "acc_name_list": [
+    "acc_k"
+  ],
+  "optimizer_name_list": [
+    "optimizer_k"
+  ],
+  "loss_name_list": [
+    "loss_k"
+  ],
+
+  "structure": {
+    "structure": [
+      "full1",
+      "full2",
+      "full3",
+      "full4",
+      "full5",
+      "full6",
+      "full7",
+      "full8",
+      "out_layer"
+    ],
+    "full1": {
+      "struct": [
+        196,
+        256
+      ],
+      "dropout": false
+    },
+    "full2": {
+      "struct": [
+        256,
+        512
+      ],
+      "dropout": false
+    },
+    "full3": {
+      "struct": [
+        512,
+        512
+      ],
+      "dropout": false
+    },
+    "full4": {
+      "struct": [
+        512,
+        256
+      ],
+      "dropout": true
+    },
+    "full5": {
+      "struct": [
+        256,
+        128
+      ],
+      "dropout": false
+    },
+    "full6": {
+      "struct": [
+        128,
+        64
+      ],
+      "dropout": false
+    },
+    "full7": {
+      "struct": [
+        64,
+        32
+      ],
+      "dropout": true
+    },
+    "full8": {
+      "struct": [
+        32,
+        16
+      ],
+      "dropout": false
+    },
+    "out_layer": {
+      "struct": [
+        16,
+        1
+      ],
+      "act": "identity"
+    }
+  },
+  "test_path_to_log": "./logs/tensorboard_dnn_with_k/test_14_node/",
+  "train_path_to_log": "./logs/tensorboard_dnn_with_k/train_14_node/",
+  "epochs": 10000,
+  "model_path": "./logs/saved_model/dnn_with_k/",
+  "alpha": 500,
+  "gamma": 1,
+  "reg": 1,
+  "beta": 1,
+  "keep_prob": 1,
+  "batch_size": 1024,
+  "learning_rate": 0.001,
+  "display": 1
+}

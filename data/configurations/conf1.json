@@ -8,6 +8,19 @@
   "input_size": 3920,
   "image_size": 28,
   "channel": 5,
+  "acc_name_list": [
+    "acc_r",
+    "acc_s"
+  ],
+  "optimizer_name_list": [
+    "optimizer_r",
+    "optimizer_s"
+  ],
+  "loss_name_list": [
+    "loss_r",
+    "loss_s"
+  ],
+
   "structure": {
     "structure": [
       "conv1",
@@ -21,7 +34,7 @@
       "full2",
       "full3",
       "full4",
-      "out_layer"
+      "out_tear_layer"
     ],
     "conv1": {
       "struct": [
@@ -158,7 +171,7 @@
       ],
       "dropout": false
     },
-    "out_layer": {
+    "out_tear_layer": {
       "struct": [
         16,
         2

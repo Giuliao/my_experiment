@@ -253,18 +253,12 @@ def init_directory(node_num, directed):
 
 def fine_tune(p, node_num, count):
     base = 0.3
-    try:
-        for i in range(1, node_num):
-            if count == node_num-1:
-                1/0
-            elif count == i:
-                p = base + count*1/node_num
 
-        if p > 1:
-            p = 0.99
+    for i in range(1, node_num):
+        p = base + count/node_num
 
-    except ZeroDivisionError as e:
-        raise e
+    if p >= 1:
+        p = 0.99
 
     return p
 
@@ -283,11 +277,11 @@ def data_generate(node_num, file_name, directed=False):
     start_time = time.time()
 
     # initialize
-    threshold = 200
+    threshold = 10
     write_file = init_directory(node_num, directed)
     r_s_is_count, df, is_used, local_dict, count = init_file_variables(write_file, node_num, file_name, threshold)
     data_features = [str(i) for i in range(node_num ** 2)]
-    p = 0.3  # the probability of the binominal graph
+    p = 0.5  # the probability of the binominal graph
     pool = None
     # node_connectivity = local_wrapper(nx.node_connectivity)
     print('init finish..')
@@ -346,11 +340,16 @@ def data_generate(node_num, file_name, directed=False):
             # del pool  # del will delete the variable completely, no None here
             del network_objects
             del result
-
+            if count == node_num - 1:
+                1/0
             # modify the probability according to the count
-            p = fine_tune(p, node_num, count)
-
-    except Exception as e:
+            if count >= 4:
+                p = fine_tune(p, node_num, count)
+            print('p=>', p)
+            
+    except ZeroDivisionError:
+        pass
+    except Exception:
         traceback.print_exc()
         # for the case keyboard interrupt
         if pool is not None:
@@ -395,6 +394,10 @@ def data_generate_test():
 
 
 def local_wrapper(func):
+    """http://python.jobbole.com/81683/
+    :param func: 
+    :return: 
+    """
     def inner(**kwargs):
         adjmatrix = kwargs.get('adjmatrix', None)
         network_G = kwargs.get('G', None)

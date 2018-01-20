@@ -6,6 +6,21 @@
     "./data/undirected/node_10/r_4.csv",
     "./data/undirected/node_10/r_5.csv"
   ],
+
+  "acc_name_list": [
+    "acc_r",
+    "acc_s"
+  ],
+  "optimizer_name_list": [
+    "optimizer_r",
+    "optimizer_s"
+  ],
+  "loss_name_list": [
+    "loss_r",
+    "loss_s"
+  ],
+
+
   "decay_steps": 200,
   "decay_rate": 0.99,
   "n_classes": 2,
@@ -179,7 +194,7 @@
   "reg": 1,
   "beta": 1,
   "keep_prob": 0.7,
-  "batch_size": 256,
+  "batch_size": 1024,
   "learning_rate": 0.001,
   "display": 1
 }
