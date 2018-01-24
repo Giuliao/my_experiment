@@ -16,7 +16,7 @@ import networkx as nx
 
 def print_dict(local_dict):
     for k in local_dict:
-        print(k, '=>', local_dict[k],)
+        print(k, '=>', local_dict[k], )
 
 
 def set_labels():
@@ -26,7 +26,7 @@ def set_labels():
     df = pd.DataFrame(np.zeros((labels.shape[0], 50)), dtype=np.int)
 
     for row in range(labels.shape[0]):
-        df.iloc[row][labels[row]-1] = 1
+        df.iloc[row][labels[row] - 1] = 1
 
     r_1_train_data.join(df).to_csv("./data/r_5_train_data.csv")
 
@@ -48,7 +48,7 @@ def set_s_labels(file_name, local_index, n_class, new_n_class):
         new_labels.iloc[row][index] = 1
 
     # print(new_labels)
-    train_data.join(new_labels).to_csv("./data/r_"+str(local_index+1)+"_train_data_with_s.csv")
+    train_data.join(new_labels).to_csv("./data/r_" + str(local_index + 1) + "_train_data_with_s.csv")
     # pd.concat([train_data, new_labels], axis=1)
     return
 
@@ -57,7 +57,7 @@ def set_new_label(file_name, local_index, r, s, n_class, new_n_class):
     local_dict = {}
     for i in range(r):
         for j in range(s):
-            local_dict[i*s+j] = i*(s+1) + j
+            local_dict[i * s + j] = i * (s + 1) + j
 
     print_dict(local_dict)
 
@@ -75,7 +75,7 @@ def set_new_label(file_name, local_index, r, s, n_class, new_n_class):
         new_labels.iloc[row][index] = 1
 
     # print(new_labels)
-    train_data.join(new_labels).to_csv("./data/node_6/r_"+str(local_index)+"_train_data_with_dis_5.csv")
+    train_data.join(new_labels).to_csv("./data/node_6/r_" + str(local_index) + "_train_data_with_dis_5.csv")
     # pd.concat([train_data, new_labels], axis=1)
     return
 
@@ -94,7 +94,7 @@ def set_r_labels(file_name, local_index, n_class, new_n_class):
     for row in range(labels.shape[0]):
         labels.iloc[row][local_index] = 1
 
-    r_train_data.join(labels).to_csv("./data/r_"+str(local_index+1)+"_train_data_new.csv")
+    r_train_data.join(labels).to_csv("./data/r_" + str(local_index + 1) + "_train_data_new.csv")
     return
 
 
@@ -105,12 +105,12 @@ def set_origin_labels(file_name, local_index, n, n_class):
     print(labels.head())
     new_label = pd.DataFrame(np.zeros((labels.shape[0], 2), dtype=np.int))
     import math
-    r = int(math.ceil(n/2.0))
+    r = int(math.ceil(n / 2.0))
     s = n
     local_dict = {}
     for i in range(r):
         for j in range(s):
-            local_dict[i*n+j] = (i+1, j+1)
+            local_dict[i * n + j] = (i + 1, j + 1)
 
     for row in range(labels.shape[0]):
         # print(labels.loc[row])
@@ -122,6 +122,7 @@ def set_origin_labels(file_name, local_index, n, n_class):
     print(final_df.head())
     print(final_df.tail())
     final_df.to_csv('./data/r_%d_train_origin_data.csv' % local_index)
+
 
 # mlist=[]
 # index = [0 for i in range(24)]
@@ -198,8 +199,8 @@ def init_file_variables(write_file, node_num, file_name, threshold):
 
     r_s_is_count = {}
     count = 0
-    labels_size = 1 # attention here need to change
-    labels_feature = ['k'] # attention here need to change
+    labels_feature = ['r', 's']  # attention here need to change
+    labels_size = len(labels_feature)  # attention here need to change
 
     # make sure there is the json file
     if os.path.exists(write_file.format(node_num, file_name, 'json')):
@@ -228,7 +229,7 @@ def init_file_variables(write_file, node_num, file_name, threshold):
 
     else:
         # features as columns to format the csv file
-        features = [str(q) for q in range(node_num**2)]
+        features = [str(q) for q in range(node_num ** 2)]
         features.extend(labels_feature)
         df = pd.DataFrame(columns=features)
         is_used = None
@@ -238,9 +239,9 @@ def init_file_variables(write_file, node_num, file_name, threshold):
 
 def init_directory(node_num, directed):
     if directed:
-        write_file = "./data/k_connectivity/directed/node_{0}/"
+        write_file = "./data/directed/node_{0}/"
     else:
-        write_file = "./data/k_connectivity/undirected/node_{0}/"
+        write_file = "./data/undirected/node_{0}/"
 
     # make sure there exists the directory
     if not os.path.exists(write_file.format(node_num)):
@@ -252,10 +253,15 @@ def init_directory(node_num, directed):
 
 
 def fine_tune(p, node_num, count):
-    base = 0.3
+    base = 0.1
+    if node_num % 2 == 1:
+        total = (node_num // 2) * (node_num - 1) + node_num // 2 + 5
+
+    else:
+        total = node_num // 2 * (node_num - 1) + 1
 
     for i in range(1, node_num):
-        p = base + count/node_num
+        p = base + count / total
 
     if p >= 1:
         p = 0.99
@@ -277,76 +283,81 @@ def data_generate(node_num, file_name, directed=False):
     start_time = time.time()
 
     # initialize
-    threshold = 10
+    threshold = 100
     write_file = init_directory(node_num, directed)
     r_s_is_count, df, is_used, local_dict, count = init_file_variables(write_file, node_num, file_name, threshold)
     data_features = [str(i) for i in range(node_num ** 2)]
-    p = 0.5  # the probability of the binominal graph
+    p = 0.4  # the probability of the binominal graph
     pool = None
     # node_connectivity = local_wrapper(nx.node_connectivity)
     print('init finish..')
 
     try:
         while 1:
+            if node_num % 2 == 1:
+                if count == (node_num // 2) * (node_num - 1) + node_num // 2 - 1:
+                    1 / 0
+            elif count == node_num // 2 * (node_num - 1):
+                1 / 0
+
             pool = multiprocessing.Pool(16, init_worker)
             result = []
             network_objects = []
             for k in range(16):
                 mm = consensus_algo.NetworkAlgo(node_num, p, directed=directed)
                 adjmatrix = mm.adjMatrix
-                if is_used is not None and any((adjmatrix.reshape((-1, node_num**2)) == x).all() for x in is_used):
+                if is_used is not None and any((adjmatrix.reshape((-1, node_num ** 2)) == x).all() for x in is_used):
                     # print('continue...')
                     continue
                 else:
                     if is_used is None:
-                        is_used = adjmatrix.reshape((-1, node_num**2))
+                        is_used = adjmatrix.reshape((-1, node_num ** 2))
                     else:
-                        is_used = np.vstack((is_used, adjmatrix.reshape((-1, node_num**2))))
+                        is_used = np.vstack((is_used, adjmatrix.reshape((-1, node_num ** 2))))
 
                     network_objects.append(pd.DataFrame(adjmatrix.reshape(-1, node_num ** 2),
                                                         columns=data_features))
                 # print(k)
-                # result.append(pool.apply_async(CheckRobustness.determine_robustness_multi_process, (adjmatrix,)))
-                result.append(pool.apply_async(nx.node_connectivity, (mm.G,)))
+                result.append(pool.apply_async(CheckRobustness.determine_robustness, (adjmatrix,)))
+                # result.append(pool.apply_async(nx.node_connectivity, (mm.G,)))
 
             pool.close()
             pool.join()
 
             for r, tt in zip(result, network_objects):
                 r_s = r.get()
-
-                # if r_s[0] != int(file_name.split('_')[1]):
-                #     continue
-                if r_s == 0:
+                if r_s[0] == 0:
                     continue
+                # if r_s == 0:
+                #     continue
 
-                rr_s = 'k_'+str(r_s)
+                rr_s = str(r_s)
                 if rr_s in local_dict:
                     if local_dict[rr_s] >= threshold:
                         if rr_s not in r_s_is_count:
                             r_s_is_count[rr_s] = 1
                             count += 1
                         continue
-                    local_dict[rr_s] += 1       
+                    local_dict[rr_s] += 1
                 else:
-                    local_dict[rr_s] = 1      
+                    local_dict[rr_s] = 1
 
-                # df = df.append(tt.join(pd.DataFrame(np.array(r_s, dtype=np.int).reshape(-1, 2), columns=['r', 's'])))
-                df = df.append(tt.join(pd.DataFrame(np.array(r_s, dtype=np.int).reshape(-1, 1), columns=['k'])))
+                df = df.append(tt.join(pd.DataFrame(np.array(r_s, dtype=np.int).reshape(-1, 2), columns=['r', 's'])))
+                # df = df.append(tt.join(pd.DataFrame(np.array(r_s, dtype=np.int).reshape(-1, 1), columns=['k'])))
+            print('node_num=>', node_num)
             print_dict(local_dict)
             print(count)
-            print('*'*75)
-            
+            print('*' * 75)
+
             # del pool  # del will delete the variable completely, no None here
             del network_objects
             del result
-            if count == node_num - 1:
-                1/0
+
             # modify the probability according to the count
-            if count >= 4:
+            if count >= node_num // 2:
                 p = fine_tune(p, node_num, count)
             print('p=>', p)
-            
+
     except ZeroDivisionError:
         pass
     except Exception:
@@ -363,7 +374,7 @@ def data_generate(node_num, file_name, directed=False):
             df.to_csv(write_file.format(node_num, file_name, 'csv'))
             with open(write_file.format(node_num, file_name, 'json'), 'wr') as f:
                 f.write(json.dumps(local_dict))
-        print('finished, time:', time.time()-start_time)
+        print('finished, time:', time.time() - start_time)
 
 
 def data_generate_test():
@@ -398,17 +409,18 @@ def local_wrapper(func):
     :param func: 
     :return: 
     """
+
     def inner(**kwargs):
         adjmatrix = kwargs.get('adjmatrix', None)
         network_G = kwargs.get('G', None)
         print("hell0")
         func(network_G)
         return adjmatrix, func
+
     return inner
 
 
 def k_connectivity_data_generate(directed=False):
-
     pool = multiprocessing.Pool(4)
     result = []
     objs = []
@@ -423,11 +435,12 @@ def k_connectivity_data_generate(directed=False):
 
     # for r in result:
     #     print(r.get())
-    print('*'*75)
+    print('*' * 75)
 
     # for k in objs:
     #     print(nx.node_connectivity(k.G))
 
+
 if __name__ == '__main__':
-    for i in range(10, 21):
-        data_generate(i, 'k_{0}'.format(i), True)
+    for i in range(5, 10):
+        data_generate(i, 'r_{0}'.format(i), True)
