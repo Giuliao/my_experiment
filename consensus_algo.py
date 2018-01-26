@@ -27,7 +27,7 @@ class NetworkAlgo(object):
         """
         self.vertex_num = vertex_num
         self.G = self.init_network(vertex_num, p, directed, network_file, adjMatrix)
-        self.adjMatrix = nx.adjacency_matrix(self.G).todense().view(np.ndarray).reshape(self.vertex_num,
+        self.adjMatrix = nx.adjacency_matrix(self.G).todense().view(np.ndarray).astype(np.int8).reshape(self.vertex_num,
                                                                                         self.vertex_num)
 
         self.init_vertex_value(self.G, vertex_value_file)
