@@ -222,9 +222,10 @@ def init_file_variables(write_file, node_num, file_name, threshold):
     # make sure there is the csv file
     if os.path.exists(write_file.format(node_num, file_name, 'csv')):
         # the df save all adjmatrixs which will reshape to a vector
-        df = pd.read_csv(write_file.format(node_num, file_name, 'csv'), index_col=0)
+        df = pd.read_csv(write_file.format(node_num, file_name, 'csv'), index_col=0, dtype=np.int8)
         # is_used is a numpy array for deduplicating
         is_used = df.iloc[:, :-labels_size].values
+
         print('is_used restored finished')
 
     else:
@@ -283,7 +284,7 @@ def data_generate(node_num, file_name, directed=False):
     start_time = time.time()
 
     # initialize
-    threshold = 100
+    threshold = 1000
     write_file = init_directory(node_num, directed)
     r_s_is_count, df, is_used, local_dict, count = init_file_variables(write_file, node_num, file_name, threshold)
     data_features = [str(i) for i in range(node_num ** 2)]
@@ -342,7 +343,7 @@ def data_generate(node_num, file_name, directed=False):
                 else:
                     local_dict[rr_s] = 1
 
-                df = df.append(tt.join(pd.DataFrame(np.array(r_s, dtype=np.int).reshape(-1, 2), columns=['r', 's'])))
+                df = df.append(tt.join(pd.DataFrame(np.array(r_s, dtype=np.int8).reshape(-1, 2), columns=['r', 's'])))
                 # df = df.append(tt.join(pd.DataFrame(np.array(r_s, dtype=np.int).reshape(-1, 1), columns=['k'])))
             print('node_num=>', node_num)
             print_dict(local_dict)
@@ -358,8 +359,6 @@ def data_generate(node_num, file_name, directed=False):
                 p = fine_tune(p, node_num, count)
             print('p=>', p)
 
-    except ZeroDivisionError:
-        pass
     except Exception:
         traceback.print_exc()
         # for the case keyboard interrupt
@@ -442,5 +441,5 @@ def k_connectivity_data_generate(directed=False):
 
 
 if __name__ == '__main__':
-    for i in range(5, 10):
+    for i in range(6, 8):
         data_generate(i, 'r_{0}'.format(i), True)
