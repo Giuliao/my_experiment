@@ -93,17 +93,22 @@ class NeuralNetwork:
         return optimize, learning_rate
 
     def _make_loss(self, output, target, name, regression=True):
-        # loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.out, labels=self.target))
-        # loss3 = self.reg_lambda*get_reg_loss(self.W, self.b)
-        # loss = self.alpha*loss1 + self.beta*loss2 + loss3*self.reg_lambda
+
         def get_reg_loss(weight, biases):
             ret = tf.add_n([tf.nn.l2_loss(w) for w in weight.values()])
-            ret = ret + tf.add_n([tf.nn.l2_loss(b) for b in biases.values()])
+            ret += tf.add_n([tf.nn.l2_loss(b) for b in biases.values()])
+
             return ret
 
         with tf.name_scope(name):
             if regression:
-                loss = tf.reduce_sum(tf.pow(output - target, 2))
+                if self.W:
+                    with tf.name_scope('weight_decay'):
+                        weight_decay = get_reg_loss(self.W, self.b)
+
+                    loss = tf.reduce_sum(tf.pow(output - target, 2)) + self.reg_lambda*weight_decay
+                else:
+                    loss = tf.reduce_sum(tf.pow(output - target, 2))
             else:
                 loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=target))
 
@@ -136,7 +141,7 @@ class NeuralNetwork:
             tf.summary.scalar('min', tf.reduce_min(var))
             tf.summary.histogram('histogram', var)
 
-    def _make_weights_biases(self, dimension, name, mean=0, stddev=0.1):
+    def _make_weights_biases(self, dimension, name, mean=0, stddev=0.1, weight_decay=False):
         """customized weights and biases constructor
         :param dimension: 
         :param name: 
@@ -146,10 +151,12 @@ class NeuralNetwork:
         """
         weights = tf.Variable(tf.random_normal(dimension, stddev=stddev), name=name + 'weights')
         # self.variable_summaries(weights)
-        self.W[name + 'weights'] = weights
+        if weight_decay:
+            self.W[name + 'weights'] = weights
         biases = tf.Variable(tf.random_normal(dimension[-1:], mean=mean, stddev=stddev), name=name + 'biases')
         # self.variable_summaries(biases)
-        self.b[name + 'biases'] = biases
+        if weight_decay:
+            self.b[name + 'biases'] = biases
 
         return weights, biases
 
@@ -163,7 +170,15 @@ class NeuralNetwork:
         :return: a tensor
         """
         with tf.name_scope(layer_name) as ns:
-            weights, biases = self._make_weights_biases(dimension=dimension, name=ns)
+
+            if 'weight_decay' in local_struct[layer_name]:
+                weight_decay = local_struct[layer_name]['weight_decay']
+            else:
+                weight_decay = False
+
+            weights, biases = self._make_weights_biases(dimension=dimension,
+                                                        name=ns,
+                                                        weight_decay=weight_decay)
             with tf.name_scope('Wx_plus_b'):
                 preactivate = tf.matmul(input_tensor, weights) + biases
             if 'dropout' in local_struct[layer_name] and local_struct[layer_name]['dropout']:
@@ -189,7 +204,12 @@ class NeuralNetwork:
         """
 
         with tf.name_scope(layer_name) as ns:
-            weights, biases = self._make_weights_biases(dimension, ns)
+            if 'weight_decay' in local_struct[layer_name]:
+                weight_decay = local_struct[layer_name]['weight_decay']
+            else:
+                weight_decay = False
+
+            weights, biases = self._make_weights_biases(dimension, ns, weight_decay=weight_decay)
             with tf.name_scope('Wx_plus_b'):
                 preactivate = tf.nn.conv2d(
                     input_tensor,
@@ -431,9 +451,9 @@ class NeuralNetwork:
         with tf.name_scope('Accuracy'):
             # here 'for' step need to optimize, when self.out[index].shape != 1
             for index in range(len(self.out)):
-                    self.acc.append(self.get_accuracy(self.out[index],
-                                                      tf.slice(self.target, [0, index], [-1, self.out[index].shape[1]]),
-                                                      self.acc_name_list[index]))
+                self.acc.append(self.get_accuracy(self.out[index],
+                                                  tf.slice(self.target, [0, index], [-1, self.out[index].shape[1]]),
+                                                  self.acc_name_list[index]))
 
         acc_summ = []
         for index, name in enumerate(self.acc_name_list):
@@ -493,24 +513,26 @@ class NeuralNetwork:
         test_X, test_Y = input_data.get_test_data()
         ss = self.sess.run(self.epoch_step)
         step = self.sess.run(self.global_step)
-        train_ops = [self.loss, self.train_merged_summary_op, self.target, self.out, self.optimizer, self.increment_global_step]
+        train_ops = [self.loss, self.train_merged_summary_op, self.target, self.out, self.optimizer,
+                     self.increment_global_step]
         test_ops = [self.test_merged_summary_op]
         try:
             for k in range(ss, self.epochs):
-                epoch_loss = [0.0]*len(self.loss)
-                epoch_acc = [0.0]*len(self.loss)
-                test_acc = [0.0]*len(self.loss)
+                epoch_loss = [0.0] * len(self.loss)
+                epoch_acc = [0.0] * len(self.loss)
+                test_acc = [0.0] * len(self.loss)
                 number_of_batch = 0
                 for train_X, train_Y in input_data.get_train_data(self.batch_size):
                     # train_X, test_X, train_Y, test_Y = train_test_split(train_X, train_Y, test_size=0.2)
                     cost, summ, target, predict = self.fit(train_X=train_X, train_Y=train_Y,
-                                                  keep_prob=self.my_keep_prob, ops=train_ops)[:4]
+                                                           keep_prob=self.my_keep_prob, ops=train_ops)[:4]
 
                     for index in range(len(cost)):
                         epoch_loss[index] += cost[index]
 
                     for index in range(len(self.acc)):
-                        epoch_acc[index] += self.fit(ops=self.acc[index], train_X=train_X, train_Y=train_Y, keep_prob=1.0)
+                        epoch_acc[index] += self.fit(ops=self.acc[index], train_X=train_X, train_Y=train_Y,
+                                                     keep_prob=1.0)
 
                     # print(predic) # debug
                     # print(len(predic))
@@ -527,7 +549,8 @@ class NeuralNetwork:
                 print('epoch => ', k + 1)
                 for index in range(len(self.loss)):
                     print('average %s => %f' % (self.loss_name_list[index], epoch_loss[index] / number_of_batch))
-                    print('average %s => %.2f%%' % (self.acc_name_list[index], epoch_acc[index] / number_of_batch * 100))
+                    print(
+                        'average %s => %.2f%%' % (self.acc_name_list[index], epoch_acc[index] / number_of_batch * 100))
                     print('test %s => %.2f%%' % (self.acc_name_list[index], test_acc[index] * 100))
 
                 print()
