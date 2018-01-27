@@ -147,11 +147,11 @@ class NetworkAlgo(object):
         import time
         plt.figure(time.time())
         for v in self.G.nodes():
-            self.G.node[v]['state'] = str(v)
+            self.G.node[v]['state'] = str(v+1)
 
         node_labels = nx.get_node_attributes(self.G, 'state')
         pos = nx.circular_layout(self.G)
-        nx.draw_networkx_labels(self.G, pos, node_labels=node_labels)
+        nx.draw_networkx_labels(self.G, pos, labels=node_labels)
         nx.draw(self.G, pos)
         plt.savefig('./assets/result2.png')
         # plt.show(block=False)

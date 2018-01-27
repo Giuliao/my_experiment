@@ -201,72 +201,105 @@ def determine_partial_robust(A, i):
 
 def print_dict(local_dict):
     for k in local_dict.keys():
-        print(k, '=>', '|' * local_dict[k])
+        print(k, '=>', '|' * local_dict[k], local_dict[k])
 
+
+local_dict = {}
+def recursive_cal(adjmatrix, p, q, count):
+
+    for i in range(p, adjmatrix.shape[0]):
+        if i == p:
+            k = q + 1
+        else:
+            k = 0
+        for j in range(k, adjmatrix.shape[1]):
+            if i != j:
+                adjmatrix[i][j] = 0
+                if count == 100:
+                    # print(adjmatrix)
+                    kk = determine_robustness(adjmatrix)
+                    # print(kk)
+                    if kk not in local_dict:
+                        local_dict[kk] = 1
+                    else:
+                        local_dict[kk] += 1
+                    print_dict(local_dict)
+                    print('*' * 75)
+                else:
+                    recursive_cal(adjmatrix, i, j, count+1)
+                adjmatrix[i][j] = 1
 
 if __name__ == '__main__':
     import consensus_algo
+    import time
+    # local_dict = {}
 
-    #
-    # pool = multiprocessing.Pool(processes=5)
-    #
-    # ll = [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1,
-    #     0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0,
-    #     1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1,
-    #     1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0,
-    #     1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1,
-    #     1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0,
-    #     1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1,
-    #     1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1,
-    #     1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0,
-    #     1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1,
-    #     0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1,
-    #     1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1,
-    #     1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0]
-    #
-    #
-    # adjmatrix = np.array(ll)
-    # adjmatrix= adjmatrix.reshape((13, 13))
-    # print(adjmatrix)
-    # mm = consensus_algo.NetworkAlgo(adjMatrix=adjmatrix)
-    # result = []
-    # print(mm.adjMatrix)
-    # mm.show_network()
-    # # print(determine_partial_robust(mm.adjMatrix, 13))
-    # # mm.show_network()
-    # # print(determine_robustness2(mm.adjMatrix))
-    # import time
-    # start = time.time()
-    # for i in range(1, 14):
-    #     print("hello %d" %(i))
-    #     result.append(pool.apply_async(determine_partial_robust, (mm.adjMatrix, i)))
-    # pool.close()
-    # pool.join()
-    # final_result = []
-    # for r in result:
-    #     final_result.append(r.get())
-    # print(final_result)
-    # r, s = min(final_result)
-    # print(r, s)
-    # print(check_robustness(mm.adjMatrix, r, s))
-    # print('multi-process time:', time.time()-start)
-    # start = time.time()
-    # r, s = determine_robustness(mm.adjMatrix)
-    # print(r, s)
-    # print(check_robustness(mm.adjMatrix, r, s))
-    # print('one process time', time.time()-start)
-    #
+    # while True:
+    #     start = time.time()
+    #     mm = consensus_algo.NetworkAlgo(vertex_num=15, p=0.92)
+    #     kk = determine_robustness2(mm.adjMatrix)
+    #     end = time.time()-start
+    #     print(end)
+    #     if kk not in local_dict:
+    #         local_dict[kk] = 1
+    #     else:
+    #         local_dict[kk] += 1
+    #     print_dict(local_dict)
+    #     print('*' * 75)
+    #     del mm
+    def swap_col(aa, col1, col2):
+        if col1 == col2:
+            return
+        tmp = np.copy(aa[:, col1])
+        aa[:, col1] = aa[:, col2]
+        aa[:, col2] = tmp
+        del tmp
 
+    def swap_row(aa, row1, row2):
+        if row1 == row2:
+            return
+        tmp = np.copy(aa[row1, :])
+        aa[row1, :] = aa[row2, :]
+        aa[row2, :] = tmp
+        del tmp
+
+    is_used = None
+
+    def permutation(adj, index):
+        if index == adj.shape[0]:
+            global is_used
+            if is_used is not None and any((adj.reshape((-1, adj.shape[0] ** 2)) == x).all() for x in is_used):
+                # print(adj.reshape((-1, adj.shape[0]**2)))
+                return
+            else:
+                if is_used is None:
+                    is_used = np.copy(adj.reshape(-1, adj.shape[0]**2))
+                else:
+                    is_used = np.vstack((is_used, adj.reshape(-1, adj.shape[0]**2)))
+            print(determine_robustness(adj))
+            print('-'*20, is_used.shape)
+
+        else:
+            for i in range(index, adj.shape[0]):
+                swap_col(adj, index, i)
+                swap_row(adj, index, i)
+                #print('swap',index, i)
+                # print(adj)
+                permutation(adj, index+1)
+                swap_row(adj, index, i)
+                swap_col(adj, index, i)
 
     local_dict = {}
-
-    while 1:
-        mm = consensus_algo.NetworkAlgo(vertex_num=10, p=0.92)
-        kk = determine_robustness2(mm.adjMatrix)
-        if kk not in local_dict:
-            local_dict[kk] = 1
-        else:
-            local_dict[kk] += 1
-        print_dict(local_dict)
-        print('*' * 75)
-        del mm
+    while True:
+        mm = consensus_algo.NetworkAlgo(vertex_num=5, p=0.85)
+        adjmatrix = mm.adjMatrix
+        kk = determine_robustness(adjmatrix)
+        # print(kk)
+        # if kk not in local_dict:
+        #     local_dict[kk] = 1
+        # else:
+        #     local_dict[kk] += 1
+        # print_dict(local_dict)
+        # print('*'*75)
+        if kk == (3, 1):
+            permutation(adjmatrix, 0)
