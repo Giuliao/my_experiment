@@ -8,17 +8,19 @@ import scipy
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 from model import config
+import matplotlib.pyplot as plt
 
 
 class DataGenerator:
     def __init__(self, con):
         self.file_name_list = con.file_name_list
         self.n_classes = con.n_classes
-        self.train_X, self.train_Y, self.test_X, self.test_Y = self.read_from_csv_list()
+        self.train_X, self.train_Y, self.test_X, self.test_Y = self.read_from_csv_list(test_size=0.3)
         self.total_train = self.train_X.shape[0]
+
         print('=> data init finished')
 
-    def read_from_csv_list(self):
+    def read_from_csv_list(self, test_size):
         pd_ll = []
         for local_file in self.file_name_list:
             pd_ll.append(pd.read_csv(local_file, header=0, index_col=0))
@@ -29,7 +31,7 @@ class DataGenerator:
         # print(df.head())
         valid_X = df.iloc[:, : -self.n_classes].reset_index(drop=True)
         valid_Y = df.iloc[:, -self.n_classes:].reset_index(drop=True)
-        train_X, test_X, train_Y, test_Y = train_test_split(valid_X, valid_Y, test_size=0.3)
+        train_X, test_X, train_Y, test_Y = train_test_split(valid_X, valid_Y, test_size=test_size)
 
         # train_X = df.iloc[:-4096, : -self.n_classes].reset_index(drop=True)
         # train_Y = df.iloc[:-4096, -self.n_classes:].reset_index(drop=True)
@@ -51,6 +53,13 @@ class DataGenerator:
     def get_test_data(self):
         return self.test_X, self.test_Y
 
+    def get_visulization(self, H, shape=None):
+            if shape:
+                H = H.reshape(shape)
+            H = np.flipud(H) # flip matrix up 2 down
+            print(H)
+            plt.imshow(H, cmap=plt.cm.gray, interpolation='nearest', origin='low')
+            plt.show()
 
 def get_image_data():
     con = config.Config()
@@ -142,4 +151,10 @@ def make_receptive_by_sub_graph():
 
 if __name__ == '__main__':
     # test_image()
-    make_receptive_by_sub_graph()
+    # make_receptive_by_sub_graph()
+    con = config.Config()
+    data = DataGenerator(con)
+    # for index in range(data.train_X.shape[0]):
+    #     data.get_visulization(data.train_X.iloc[index, :].values, (10, 10))
+    for x, y in data.get_train_data(1):
+        print(x.values.reshape((12, 12)))
