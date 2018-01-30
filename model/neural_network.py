@@ -47,6 +47,7 @@ class NeuralNetwork:
 
         self.input = None
         self.target = None
+        self.middle_out = []
         self.out = []
         self.optimizer = []
         self.loss = []
@@ -62,7 +63,7 @@ class NeuralNetwork:
 
     def init_session(self, con):
         tf_config = tf.ConfigProto()
-        # false meams fully occupied
+        # false means fully occupied
         tf_config.gpu_options.allow_growth = False
         self.sess = tf.Session(config=tf_config)
         # self.sess = tf.Session()
@@ -149,11 +150,11 @@ class NeuralNetwork:
         :param stddev: 
         :return: weights and biases
         """
-        weights = tf.Variable(tf.random_normal(dimension, stddev=stddev), name=name + 'weights')
+        weights = tf.Variable(tf.random_normal(dimension, stddev=stddev), name='weights')
         # self.variable_summaries(weights)
         if weight_decay:
             self.W[name + 'weights'] = weights
-        biases = tf.Variable(tf.random_normal(dimension[-1:], mean=mean, stddev=stddev), name=name + 'biases')
+        biases = tf.Variable(tf.random_normal(dimension[-1:], mean=mean, stddev=stddev), name='biases')
         # self.variable_summaries(biases)
         if weight_decay:
             self.b[name + 'biases'] = biases
@@ -176,16 +177,18 @@ class NeuralNetwork:
             else:
                 weight_decay = False
 
-            weights, biases = self._make_weights_biases(dimension=dimension,
-                                                        name=ns,
-                                                        weight_decay=weight_decay)
             with tf.name_scope('Wx_plus_b'):
+                weights, biases = self._make_weights_biases(dimension=dimension,
+                                                            name=ns,
+                                                            weight_decay=weight_decay)
+
                 preactivate = tf.matmul(input_tensor, weights) + biases
+
             if 'dropout' in local_struct[layer_name] and local_struct[layer_name]['dropout']:
-                preactivate = tf.nn.dropout(preactivate, keep_prob=self.keep_prob, name=ns + 'dropout')
+                preactivate = tf.nn.dropout(preactivate, keep_prob=self.keep_prob, name='dropout')
                 # tf.summary.histogram('pre_activations', preactivate)
 
-            activations = act(preactivate, name=ns + 'activation')
+            activations = act(preactivate, name='activation')
             # tf.summary.histogram('activations', activations)
 
             return activations
@@ -209,8 +212,8 @@ class NeuralNetwork:
             else:
                 weight_decay = False
 
-            weights, biases = self._make_weights_biases(dimension, ns, weight_decay=weight_decay)
             with tf.name_scope('Wx_plus_b'):
+                weights, biases = self._make_weights_biases(dimension, ns, weight_decay=weight_decay)
                 preactivate = tf.nn.conv2d(
                     input_tensor,
                     weights,
@@ -218,10 +221,10 @@ class NeuralNetwork:
                     padding=local_struct[layer_name]['padding']
                 )
             if 'dropout' in local_struct[layer_name] and local_struct[layer_name]['dropout']:
-                preactivate = tf.nn.dropout(preactivate, keep_prob=self.keep_prob, name=ns + 'dropout')
+                preactivate = tf.nn.dropout(preactivate, keep_prob=self.keep_prob, name='dropout')
                 # tf.summary.histogram('pre_activations', preactivate)
 
-            activations = act(preactivate, name=ns + 'activation')
+            activations = act(preactivate, name='activation')
             # tf.summary.histogram('activations', activations)
             return activations
 
@@ -412,6 +415,10 @@ class NeuralNetwork:
 
                 local_input = None
 
+            if 'save_output' in local_struct[layer_name] and \
+                local_struct[layer_name]['save_output']:
+                self.middle_out.append(local_input)
+
         return local_input
 
     def build_network_model(self):
@@ -499,15 +506,7 @@ class NeuralNetwork:
         return self.sess.run(self.b)
 
     def predict_eval_data(self, input_data):
-        test_X, test_Y = input_data.get_test_data()
-        acc_r, acc_s = self.get_accuracy()
-        # remember when there is no [] in ops then the output is not a list!!!
-        predict, acc_r, acc_s = self.sess.run([self.out, acc_r, acc_s],
-                                              feed_dict={self.target: test_Y, self.input: test_X, self.keep_prob: 1})
-        # pd.DataFrame(predict[0]).reset_index(drop=True).join(test_Y.reset_index(drop=True)).to_csv('predict.csv')
-        for k in range(len(predict)):
-            print(predict[k], '=>', test_Y.iloc[k, :])
-        print('=> acc_r: %.2f%%, acc_s: %.2f%%' % (acc_r * 100, acc_s * 100))
+        pass
 
     def run_train(self, input_data):
         test_X, test_Y = input_data.get_test_data()

@@ -6,7 +6,7 @@ from model import config
 import data_processing
 
 if __name__ == '__main__':
-    con = config.Config(json_file='./data/configurations/conf1.json')
+    con = config.Config(json_file='./data/configurations/neighbor_info_test.json')
     data = data_processing.DataGenerator(con)
     mm = neural_network.NeuralNetwork(con)
     mm.build_network_model()

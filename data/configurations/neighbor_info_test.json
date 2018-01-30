@@ -1,53 +1,61 @@
 {
   "file_name_list": [
-    "./data/undirected/node_10/bfs_16_r_1.csv",
-    "./data/undirected/node_10/bfs_16_r_2.csv",
-    "./data/undirected/node_10/bfs_16_r_3.csv",
-    "./data/undirected/node_10/bfs_16_r_4.csv",
-    "./data/undirected/node_10/bfs_16_r_5.csv"
+    "./data/undirected/node_10/bfs_v1_16_r_1.csv",
+    "./data/undirected/node_10/bfs_v1_16_r_2.csv",
+    "./data/undirected/node_10/bfs_v1_16_r_3.csv",
+    "./data/undirected/node_10/bfs_v1_16_r_4.csv",
+    "./data/undirected/node_10/bfs_v1_16_r_5.csv"
   ],
   "decay_steps": 200,
   "decay_rate": 0.99,
   "n_classes": 2,
-  "input_size": 160,
-  "image_size": 4,
-  "channel": 10,
+  "input_size": 144,
+  "image_size": 12,
+  "channel": 1,
+
+  "acc_name_list": [
+    "acc_r",
+    "acc_s"
+  ],
+  "optimizer_name_list": [
+    "optimizer_r",
+    "optimizer_s"
+  ],
+  "loss_name_list": [
+    "loss_r",
+    "loss_s"
+  ],
+
+
   "structure": {
     "structure": [
       "conv1",
-      "lrn1",
       "conv2",
       "conv3",
       "conv4",
       "full1",
       "full2",
-      "out_layer"
+      "out_tear_layer"
     ],
     "conv1": {
       "struct": [
+        4,
+        4,
         1,
-        1,
-        10,
         32
       ],
       "padding": "VALID",
       "strides": [
         1,
-        1,
-        1,
+        4,
+        4,
         1
       ]
     },
-    "lrn1": {
-      "depth_radius": 5,
-      "bias": 1,
-      "alpha": 1,
-      "beta": 0.5
-    },
     "conv2": {
       "struct": [
-        2,
-        2,
+        3,
+        3,
         32,
         64
       ],
@@ -61,8 +69,8 @@
     },
     "conv3": {
       "struct": [
-        4,
-        4,
+        2,
+        2,
         64,
         128
       ],
@@ -76,8 +84,8 @@
     },
     "conv4": {
       "struct": [
-        1,
-        1,
+        2,
+        2,
         128,
         256
       ],
@@ -94,7 +102,7 @@
         256,
         128
       ],
-      "dropout": true
+      "dropout": false
     },
     "full2": {
       "struct": [
@@ -103,7 +111,7 @@
       ],
       "dropout": false
     },
-    "out_layer": {
+    "out_tear_layer": {
       "struct": [
         64,
         2
@@ -111,15 +119,15 @@
       "act": "identity"
     }
   },
-  "test_path_to_log": "./logs/tensorboard_bfs_field_16/test_10_node/",
-  "train_path_to_log": "./logs/tensorboard_bfs_field_16/train_10_node/",
+  "test_path_to_log": "./logs/tensorboard_bfs_v1_field_16/test_10_node/",
+  "train_path_to_log": "./logs/tensorboard_bfs_v1_field_16/train_10_node/",
   "epochs": 10000,
-  "model_path": "./logs/saved_model/bfs_field_16/",
+  "model_path": "./logs/saved_model/bfs_v1_field_16/",
   "alpha": 500,
   "gamma": 1,
-  "reg": 1,
+  "reg": 0.99,
   "beta": 1,
-  "keep_prob": 0.7,
+  "keep_prob": 1,
   "batch_size": 1024,
   "learning_rate": 0.001,
   "display": 1

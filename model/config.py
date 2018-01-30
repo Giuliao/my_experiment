@@ -8,11 +8,11 @@ class Config:
     def __init__(self, json_file=None):
         if not json_file:
             self.file_name_list = [
-                # "./data/undirected/node_10/r_1.csv",
-                # "./data/undirected/node_10/r_2.csv",
-                # "./data/undirected/node_10/r_3.csv",
-                # "./data/undirected/node_10/r_4.csv",
-                "./data/undirected/node_10/r_5.csv"
+                "./data/undirected/node_10/bfs_v1_16_r_1.csv",
+                "./data/undirected/node_10/bfs_v1_16_r_2.csv",
+                "./data/undirected/node_10/bfs_v1_16_r_3.csv",
+                "./data/undirected/node_10/bfs_v1_16_r_4.csv",
+                "./data/undirected/node_10/bfs_v1_16_r_1.csv"
             ]
 
             self.decay_steps = 200
