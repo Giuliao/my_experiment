@@ -14,7 +14,7 @@ import time
 
 
 class NetworkAlgo(object):
-    def __init__(self, vertex_num=5, p=0.5, directed=False, network_file=None, vertex_value_file=None, adjMatrix=None):
+    def __init__(self, vertex_num=5, p=0.5, directed=False, network_file=None, vertex_value_file=None, adjMatrix=None, nx_obj=None):
         """ the init constructor
         :param vertex_num: 
         :param network_file: 
@@ -26,14 +26,14 @@ class NetworkAlgo(object):
             self.malicious_node
         """
         self.vertex_num = vertex_num
-        self.G = self.init_network(vertex_num, p, directed, network_file, adjMatrix)
+        self.G = self.init_network(vertex_num, p, directed, network_file, adjMatrix, nx_obj)
         self.adjMatrix = nx.adjacency_matrix(self.G).todense().view(np.ndarray).astype(np.int8).reshape(self.vertex_num,
                                                                                         self.vertex_num)
 
         self.init_vertex_value(self.G, vertex_value_file)
         self.malicious_node = []
 
-    def init_network(self, vertex_num=5, p=0.9, directed=False, file_name=None, adjMatrix=None):
+    def init_network(self, vertex_num=5, p=0.9, directed=False, file_name=None, adjMatrix=None, nx_obj=None):
         """ init the network by reading a file
         
         :param file_name: 
@@ -71,9 +71,10 @@ class NetworkAlgo(object):
             #     local_adjMatrix[p1][p2] = 1
             if local_adjMatrix is None:
                 local_G = nx.binomial_graph(vertex_num, p, directed=directed)
+            elif nx_obj is not None:
+                local_G = nx_obj.copy()
             else:
                 local_G = nx.from_numpy_matrix(local_adjMatrix)
-                self.vertex_num = local_adjMatrix.shape[0]
 
         else:
             # init by file
@@ -91,6 +92,7 @@ class NetworkAlgo(object):
                         local_adjMatrix[int(tt[0]) - 1][int(tt[i]) - 1] = 1
 
             local_G = nx.from_numpy_matrix(local_adjMatrix)
+        self.vertex_num = len(local_G)
 
         return local_G
 
