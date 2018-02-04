@@ -52,11 +52,11 @@ def init_file_variables(label_features, write_dir, node_num, file_name, threshol
         r_s_is_count = {}
         count = 0
         for rr_s in local_dict.keys():
-            if local_dict[rr_s] >= threshold:
-                if rr_s not in r_s_is_count:
-                    r_s_is_count[rr_s] = 1
-                    count += 1
-
+            # if local_dict[rr_s] >= threshold:
+            #     if rr_s not in r_s_is_count:
+            #         r_s_is_count[rr_s] = 1
+            #         count += 1
+            count += local_dict[rr_s]
         print('=> r_s_is_count restore finished')
         print('=> count restore finished')
 
@@ -96,7 +96,7 @@ def fine_tune(p, node_num, count):
     base = 0.3
 
     for i in range(1, node_num):
-        p = base + count/node_num
+        p = base + count / node_num
 
     if p >= 1:
         p = 0.99
@@ -110,7 +110,7 @@ def process_produce(node_num, directed, is_used, p, que):
         for nx_obj in nx.read_graph6('./data/non-isomorphism/graph7c.g6'):
             # fine_tune(p, node_num)
             # mm = NetworkAlgo(node_num, p, directed=directed)
-            mm = NetworkAlgo(nx_obj=nx_obj, directed=True)
+            mm = NetworkAlgo(nx_obj=nx_obj, directed=directed)
             adjmatrix = mm.adjMatrix
             if is_used is not None and any((adjmatrix.reshape((-1, node_num ** 2)) == x).all() for x in is_used):
                 # print('continue...')
@@ -123,7 +123,13 @@ def process_produce(node_num, directed, is_used, p, que):
                 is_used = None
 
                 que.put(adjmatrix)
-    except Exception:
+    except KeyboardInterrupt:
+        print('=> producer %d in exception' % os.getpid())
+        sys.exit(0)
+    else:
+        print('=> producer %d read finished and wait last 20 seconds' % os.getpid())
+        time.sleep(20)
+        os.kill(os.getppid(), signal.SIGINT)
         sys.exit(0)
 
 
@@ -131,6 +137,7 @@ def process_write(data_features, label_features,
                   node_num, local_dict, r_s_is_count, count, threshold,
                   df, write_file, file_name, que):
     print('-' * 75, 'writer working')
+    print('=> init count', count)
     try:
         # if node_num % 2 == 1:
         #     if count == ((node_num + 1) // 2 - 1) * (node_num - 1) + node_num // 2 - 1:
@@ -139,11 +146,6 @@ def process_write(data_features, label_features,
         #     1 / 0
 
         while True:
-            if que.empty():
-                time.sleep(2)
-                if que.empty():
-                    1/0
-
             r_s, adjmatrix = que.get()
             tt = pd.DataFrame(adjmatrix.reshape(-1, node_num ** 2), columns=data_features)
             rr_s = str(r_s)
@@ -157,6 +159,7 @@ def process_write(data_features, label_features,
                 local_dict[rr_s] += 1
             else:
                 local_dict[rr_s] = 1
+            count += 1
 
             print_dict(local_dict)
 
@@ -166,16 +169,21 @@ def process_write(data_features, label_features,
             print(count)
             print('*' * 75)
 
-
-
-
-    except Exception:
+    except ZeroDivisionError:
         df.to_csv(write_file.format(node_num, file_name, 'csv'))
         with open(write_file.format(node_num, file_name, 'json'), 'wr') as f:
             f.write(json.dumps(local_dict))
-        print('=> write finished')
+        print('=> writer %d write finished' % os.getpid())
         os.kill(os.getppid(), signal.SIGINT)
-        return
+        print('=> writer %d send signal finished' % os.getpid())
+        sys.exit(0)
+    except KeyboardInterrupt:
+        df.to_csv(write_file.format(node_num, file_name, 'csv'))
+        with open(write_file.format(node_num, file_name, 'json'), 'wr') as f:
+            f.write(json.dumps(local_dict))
+        print('=>writer %d write finished' % os.getpid())
+
+        sys.exit(0)
 
 
 def process_compute(que1, que2):
@@ -188,7 +196,8 @@ def process_compute(que1, que2):
         #     return
 
         que2.put([k, adjmatrix])
-    except Exception:
+    except KeyboardInterrupt:
+        print('=> computing node %d finished' % os.getpid())
         sys.exit(0)
 
 
@@ -230,9 +239,9 @@ def main(node_num, file_name, dircted):
         while True:
             pool.apply_async(process_compute, (que_adj, que_df))
 
-    except Exception:
+    except KeyboardInterrupt:
         # pool.close()
-        print('stop')
+        print('=> in main exception stop')
         pool.terminate()
         pool.join()
         del pool
