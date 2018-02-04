@@ -19,7 +19,7 @@ import json
 import time
 import signal
 import CheckRobustness
-
+import psutil
 
 def print_dict(local_dict):
     for k in local_dict:
@@ -123,7 +123,11 @@ def process_produce(node_num, directed, is_used, p, que):
                 is_used = None
                 que.put(adjmatrix)
 
+            del mm
+
+
     except KeyboardInterrupt:
+        # in macos when ctrl+c, the producet will not get in here
         print('=> producer %d in exception' % os.getpid())
         sys.exit(0)
     except IOError:
@@ -140,6 +144,7 @@ def process_produce(node_num, directed, is_used, p, que):
 def process_write(data_features, label_features,
                   node_num, local_dict, r_s_is_count, count, threshold,
                   df, write_file, file_name, que):
+
     print('-' * 75, 'writer working')
     print('=> init count', count)
     try:
@@ -206,6 +211,21 @@ def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
+def kill_child_processes(parent_pid, sig=signal.SIGINT):
+    """ https://stackoverflow.com/questions/3332043/obtaining-pid-of-child-process
+    :param parent_pid: 
+    :param sig: 
+    :return: 
+    """
+    try:
+      parent = psutil.Process(parent_pid)
+    except psutil.NoSuchProcess:
+      return
+    children = parent.children(recursive=True)
+    for process in children:
+      process.send_signal(sig)
+
+
 def main(node_num, file_name, dircted):
     manager = Manager()
     que_adj = manager.Queue()
@@ -215,6 +235,7 @@ def main(node_num, file_name, dircted):
     node_num = node_num
     file_name = file_name
     dircted = dircted
+
 
     data_features = [str(q) for q in range(node_num ** 2)]
     label_features = ['r', 's']
@@ -226,7 +247,7 @@ def main(node_num, file_name, dircted):
                                                                        threshold)
 
     # pool = Pool(4, init_worker)
-    pool = Pool(4)
+    pool = Pool(16)
     pool.apply_async(process_produce, args=(node_num, dircted, is_used, init_p, que_adj))
     pool.apply_async(process_write, args=(data_features, label_features,
                                           node_num, local_dict, r_s_is_count, count, threshold,
@@ -237,13 +258,15 @@ def main(node_num, file_name, dircted):
             pool.apply_async(process_compute, (que_adj, que_df))
 
     except KeyboardInterrupt:
+        global writer_id
         # pool.close()
         print('=> in main exception stop')
-        time.sleep(10)
+        kill_child_processes(os.getpid())
+        time.sleep(5)
         pool.terminate()
         pool.join()
         del pool
 
 
 if __name__ == '__main__':
-    main(7, 'r_{}'.format(7), True)
+    main(8, 'r_{}'.format(8), True)
