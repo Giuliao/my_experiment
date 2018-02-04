@@ -69,12 +69,16 @@ class NetworkAlgo(object):
             #     while p1 == p2:
             #         p2 = np.random.randint(0, vertex_num)
             #     local_adjMatrix[p1][p2] = 1
-            if local_adjMatrix is None:
-                local_G = nx.binomial_graph(vertex_num, p, directed=directed)
+            if local_adjMatrix is not None:
+                local_G = nx.from_numpy_matrix(local_adjMatrix)
+                if directed:
+                    local_G = local_G.to_directed()
             elif nx_obj is not None:
                 local_G = nx_obj.copy()
+                if directed:
+                    local_G = local_G.to_directed()
             else:
-                local_G = nx.from_numpy_matrix(local_adjMatrix)
+                local_G = nx.binomial_graph(vertex_num, p, directed=directed)
 
         else:
             # init by file
