@@ -376,6 +376,62 @@ def data_generate(node_num, file_name, directed=False):
         print('finished, time:', time.time() - start_time)
 
 
+def data_generate_from_file(dir_path, file_name, node_num):
+
+    labels = ['r', 's']
+    data_features = [str(q) for q in range(node_num ** 2)]
+    features = data_features + labels
+    df = pd.DataFrame(columns=features)
+    is_used = None
+    local_dict = {}
+    network_objects = []
+    results = []
+    count = 0
+    print('=> init finished')
+    start = time.time()
+    try:
+        pool = multiprocessing.Pool(16, init_worker)
+        for nx_obj in nx.read_graph6(dir_path+file_name):
+            mm = consensus_algo.NetworkAlgo(nx_obj=nx_obj)
+            adjmatrix = mm.adjMatrix
+            if is_used is not None and any((adjmatrix.reshape((-1, node_num**2)) == x).all() for x in is_used):
+                continue
+            else:
+                is_used = None
+
+            network_objects.append(pd.DataFrame(adjmatrix.reshape(-1, node_num**2), columns=data_features))
+            results.append(pool.apply_async(CheckRobustness.determine_robustness, (adjmatrix,)))
+
+        pool.close()
+        pool.join()
+
+        for r, tt in zip(results, network_objects):
+            r_s = r.get()
+            rr_s = str(r_s)
+            count += 1
+            if rr_s in local_dict:
+                local_dict[rr_s] += 1
+            else:
+                local_dict[rr_s] = 1
+
+            df = df.append(tt.join(pd.DataFrame(np.array(r_s, dtype=np.int8).reshape(-1, len(labels)), columns=labels)))
+
+        print('node_num=> ', node_num)
+        print('total_num=> ', count)
+        print_dict(local_dict)
+        print('-'*75)
+
+    except Exception:
+        pool.terminate()
+        pool.join()
+    finally:
+        df.to_csv(dir_path+'node_num_'+str(node_num)+'.csv')
+        with open(dir_path+'node_num_'+str(node_num)+'.json', 'wr') as f:
+            f.write(json.dumps(local_dict))
+        print('=> time used:', time.time()-start)
+        print('=> finished')
+
+
 def data_generate_test():
     from CheckRobustness import determine_robustness2
     my_dict = {}
@@ -441,5 +497,6 @@ def k_connectivity_data_generate(directed=False):
 
 
 if __name__ == '__main__':
-    for i in range(6, 8):
-        data_generate(i, 'r_{0}'.format(i), True)
+    # for i in range(6, 8):
+    #     data_generate(i, 'r_{0}'.format(i), True)
+    data_generate_from_file('./data/non-isomorphism/', 'graph8c.g6', 8)
