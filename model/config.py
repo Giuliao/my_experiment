@@ -8,11 +8,12 @@ class Config:
     def __init__(self, json_file=None):
         if not json_file:
             self.file_name_list = [
-                "./data/undirected/node_10/bfs_v1_16_r_1.csv",
-                "./data/undirected/node_10/bfs_v1_16_r_2.csv",
-                "./data/undirected/node_10/bfs_v1_16_r_3.csv",
-                "./data/undirected/node_10/bfs_v1_16_r_4.csv",
-                "./data/undirected/node_10/bfs_v1_16_r_1.csv"
+                # "./data/undirected/node_10/bfs_v1_16_r_1.csv",
+                # "./data/undirected/node_10/bfs_v1_16_r_2.csv",
+                # "./data/undirected/node_10/bfs_v1_16_r_3.csv",
+                # "./data/undirected/node_10/bfs_v1_16_r_4.csv",
+                # "./data/undirected/node_10/bfs_v1_16_r_1.csv"
+                "./data/directed/node_10/r_10.csv"
             ]
 
             self.decay_steps = 200
@@ -21,6 +22,7 @@ class Config:
             self.input_size = 3920
             self.image_size = 28
             self.channel = 5
+            self.node_num = 10
             self.structure = {
                 'structure': ['cnn1', 'pool1', 'cnn2', 'pool2',
                               'cnn3', 'cnn4', 'pool3', 'full1',
@@ -150,6 +152,7 @@ class Config:
                 self.acc_name_list = json_dict["acc_name_list"]
                 self.optimizer_name_list = json_dict["optimizer_name_list"]
                 self.loss_name_list = json_dict["loss_name_list"]
+                self.node_num = json_dict["node_num"]
 
                 print('=> json file read finished...')
 
