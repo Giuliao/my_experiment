@@ -1,0 +1,130 @@
+{
+  "file_name_list": [
+    "./data/directed/node_10/c_4_r_10.csv"
+  ],
+  "decay_steps": 200,
+  "decay_rate": 0.99,
+  "n_classes": 2,
+  "input_size": 100,
+  "image_size": 10,
+  "channel": 1,
+  "node_num": 10,
+  "acc_name_list": [
+    "acc_r",
+    "acc_s"
+  ],
+  "optimizer_name_list": [
+    "optimizer_r",
+    "optimizer_s"
+  ],
+  "loss_name_list": [
+    "loss_r",
+    "loss_s"
+  ],
+
+
+  "structure": {
+    "structure": [
+      "conv1",
+      "conv2",
+      "conv3",
+      "conv4",
+      "full1",
+      "full2",
+      "out_tear_layer"
+    ],
+    "conv1": {
+      "struct": [
+        3,
+        3,
+        1,
+        32
+      ],
+      "padding": "SAME",
+      "strides": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "conv2": {
+      "struct": [
+        3,
+        3,
+        32,
+        64
+      ],
+      "padding": "SAME",
+      "strides": [
+        1,
+        2,
+        2,
+        1
+      ]
+    },
+    "conv3": {
+      "struct": [
+        5,
+        5,
+        64,
+        128
+      ],
+      "padding": "VALID",
+      "strides": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "conv4": {
+      "struct": [
+        1,
+        1,
+        128,
+        256
+      ],
+      "padding": "VALID",
+      "strides": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "full1": {
+      "struct": [
+        256,
+        128
+      ],
+      "dropout": false
+    },
+    "full2": {
+      "struct": [
+        128,
+        64
+      ],
+      "dropout": false
+    },
+    "out_tear_layer": {
+      "struct": [
+        64,
+        2
+      ],
+      "act": "identity"
+    }
+  },
+  "test_path_to_log": "./logs/tensorboard_c_4/test_10_node/",
+  "train_path_to_log": "./logs/tensorboard_c_4/train_10_node/",
+  "epochs": 10000,
+  "model_path": "./logs/saved_model/c_4_cnn/",
+  "alpha": 500,
+  "gamma": 1,
+  "reg": 0.99,
+  "beta": 1,
+  "keep_prob": 1,
+  "batch_size": 1024,
+  "learning_rate": 0.001,
+  "display": 1
+}
