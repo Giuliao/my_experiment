@@ -6,9 +6,11 @@ import numpy as np
 import traceback
 import scipy
 from sklearn import preprocessing
+from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split
 from model import config
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 class DataGenerator:
@@ -17,7 +19,7 @@ class DataGenerator:
         self.n_classes = con.n_classes
         self.train_X, self.train_Y, self.test_X, self.test_Y = self.read_from_csv_list(test_size=0.3)
         self.total_train = self.train_X.shape[0]
-
+        self.node_num = con.node_num
         print('=> data init finished')
 
     def read_from_csv_list(self, test_size):
@@ -33,8 +35,8 @@ class DataGenerator:
         valid_Y = df.iloc[:, -self.n_classes:].reset_index(drop=True)
         train_X, test_X, train_Y, test_Y = train_test_split(valid_X, valid_Y, test_size=test_size)
 
-        # train_X = df.iloc[:-4096, : -self.n_classes].reset_index(drop=True)
-        # train_Y = df.iloc[:-4096, -self.n_classes:].reset_index(drop=True)
+        # train_X = df.iloc[:, : -self.n_classes].reset_index(drop=True)
+        # train_Y = df.iloc[:, -self.n_classes:].reset_index(drop=True)
         # test_X = df.iloc[-4096:, : -self.n_classes].reset_index(drop=True)
         # test_Y = df.iloc[-4096:, -self.n_classes:].reset_index(drop=True)
 
@@ -54,12 +56,102 @@ class DataGenerator:
         return self.test_X, self.test_Y
 
     def get_visulization(self, H, shape=None):
-            if shape:
-                H = H.reshape(shape)
-            H = np.flipud(H) # flip matrix up 2 down
-            print(H)
-            plt.imshow(H, cmap=plt.cm.gray, interpolation='nearest', origin='low')
-            plt.show()
+        if shape:
+            H = H.reshape(shape)
+        # H = np.flipud(H)  # flip matrix up 2 down
+        # print(H)
+        sns.heatmap(H, fmt='d')
+        # plt.imshow(H, cmap=plt.cm.jet, interpolation='nearest', origin='low')
+        plt.show()
+
+    def get_eigenvectors(self):
+        for x, y in self.get_train_data(1):
+            m = x.values.reshape((self.node_num, self.node_num))
+            # print(m+m.T)
+            m = m + m.T
+            # m = np.dot(m, m.T) + np.dot(m.T, m)
+            e, v = scipy.linalg.eigh(m)  # np.linalg.eig will return the complex data sometimes...
+            yield v.astype(np.float32), m, y
+
+    def get_confusion_matrix(self, predict):
+
+        upper_bound = self.node_num // 2 if self.node_num % 2 == 0 else self.node_num // 2 + 1
+        labels = [str((k, j)) for k in range(1, upper_bound + 1) for j in range(1, self.node_num + 1)]
+        values = np.zeros((self.node_num*upper_bound, self.node_num*upper_bound)).astype(np.uint32)
+        df = pd.DataFrame(values, columns=labels, index=labels[::-1])
+
+        for i in range(len(predict[0])):
+            x = predict[0][i]
+            y = predict[1][i]
+
+            r = int(self.test_Y.values[i][0])
+            s = int(self.test_Y.values[i][1])
+
+            x = int(x) + 1 if x - float(int(x)) > 0.5 else int(x)
+            y = int(y) + 1 if y - float(int(y)) > 0.5 else int(y)
+
+            if x > upper_bound or y > self.node_num or x <= 0 or y <= 0:
+                continue
+
+            idx_predict = str('({}, {})'.format(x, y))
+            idx_real = str('({}, {})'.format(r, s))
+            df[idx_real][idx_predict] += 1
+
+        f, ax = plt.subplots(figsize=(18, 18))
+        sns.heatmap(df, annot=True, linewidths=2, fmt='d', ax=ax)
+        plt.savefig('./assets/confusion_matrix')
+        plt.close()
+
+
+def get_shift_mat(m, new_label):
+    my_dict = {}
+    ss = set(new_label)
+    for s in ss:
+        for i, l in enumerate(new_label):
+            if s == l:
+                if s not in my_dict:
+                    my_dict[s] = m[[i], :]
+                else:
+                    my_dict[s] = np.vstack((my_dict[s], m[[i], :]))
+
+    final_m = None
+    for k in my_dict.keys():
+        if final_m is None:
+            final_m = my_dict[k][:, :]
+        else:
+            final_m = np.vstack((final_m, my_dict[k]))
+
+    return final_m
+
+
+def highlight_out_edge(m, new_label):
+    for i in range(m.shape[0]):
+        for j in range(i+1, m.shape[0]):
+            if m[i][j] != 0 and new_label[i] != new_label[j]:
+                m[i][j] = m[j][i] = m[i][j]*5
+
+
+def get_cluser_data():
+    con = config.Config()
+    digits = DataGenerator(con)
+
+    columns = [str(_) for _ in range(digits.node_num ** 2)]
+    columns.extend(['r', 's'])
+    df = pd.DataFrame(columns=columns)
+
+    for data, m, y in digits.get_eigenvectors():
+        data = preprocessing.scale(data)
+        # print(data)
+        kmeans = KMeans(n_clusters=4, random_state=0).fit(data.T)
+        new_label = kmeans.labels_
+        # print(new_label)
+        H = get_shift_mat(get_shift_mat(m, new_label).T, new_label).T
+        highlight_out_edge(H, new_label)
+        df = df.append(pd.DataFrame(np.hstack((H.reshape((1, -1)), y.values)), columns=columns))
+        # print(df.head())
+    df.to_csv('./data/directed/node_14/c_4_r_14.csv')
+    print('finished')
+
 
 def get_image_data():
     con = config.Config()
@@ -149,12 +241,20 @@ def make_receptive_by_sub_graph():
         tt = tt.reshape((10, 10))
         print(tt)
 
+
 if __name__ == '__main__':
     # test_image()
     # make_receptive_by_sub_graph()
-    con = config.Config()
-    data = DataGenerator(con)
+    get_cluser_data()
+    # con = config.Config()
+    # data = DataGenerator(con)
+    #
     # for index in range(data.train_X.shape[0]):
     #     data.get_visulization(data.train_X.iloc[index, :].values, (10, 10))
-    for x, y in data.get_train_data(1):
-        print(x.values.reshape((12, 12)))
+
+        # print(x.values.reshape((12, 12)))
+    #
+    # print(data.test_Y.head())
+    #
+    # print(data.test_Y.values[0][1])
+    # print(data.test_Y.values[0][0])
