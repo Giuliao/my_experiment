@@ -52,6 +52,7 @@ class NeuralNetwork:
         self.optimizer = []
         self.loss = []
         self.acc = []
+        self.summ = []
         self.keep_prob = None
         self.epoch_step = None
         self.global_step = None
@@ -107,7 +108,7 @@ class NeuralNetwork:
                     with tf.name_scope('weight_decay'):
                         weight_decay = get_reg_loss(self.W, self.b)
 
-                    loss = tf.reduce_sum(tf.pow(output - target, 2)) + self.reg_lambda*weight_decay
+                    loss = tf.reduce_sum(tf.pow(output - target, 2)) + self.reg_lambda * weight_decay
                 else:
                     loss = tf.reduce_sum(tf.pow(output - target, 2))
             else:
@@ -213,10 +214,10 @@ class NeuralNetwork:
                 weight_decay = False
 
             with tf.name_scope('Wx_plus_b'):
-                weights, biases = self._make_weights_biases(dimension, ns, weight_decay=weight_decay)
+                kernel, biases = self._make_weights_biases(dimension, ns, weight_decay=weight_decay)
                 preactivate = tf.nn.conv2d(
                     input_tensor,
-                    weights,
+                    kernel,
                     strides=local_struct[layer_name]['strides'],
                     padding=local_struct[layer_name]['padding']
                 )
@@ -226,6 +227,16 @@ class NeuralNetwork:
 
             activations = act(preactivate, name='activation')
             # tf.summary.histogram('activations', activations)
+            if "visualization" in local_struct[layer_name] and local_struct[layer_name]["visualization"]:
+                # reference: https://stackoverflow.com/questions/35759220/how-to-visualize-learned-filters-on-tensorflow
+                with tf.variable_scope('visualization'):
+                    # # scale weights to [0 1], type is still float
+                    x_min = tf.reduce_min(kernel)
+                    x_max = tf.reduce_max(kernel)
+                    kernel_0_to_1 = (kernel - x_min) / (x_max - x_min)
+                    kernel_transposed = tf.transpose(kernel_0_to_1, [3, 0, 1, 2])
+                    tf.summary.image(layer_name+'/filters', kernel_transposed)
+
             return activations
 
     def max_pool(self, local_struct, input_tensor, dimension, layer_name):
@@ -416,7 +427,7 @@ class NeuralNetwork:
                 local_input = None
 
             if 'save_output' in local_struct[layer_name] and \
-                local_struct[layer_name]['save_output']:
+                    local_struct[layer_name]['save_output']:
                 self.middle_out.append(local_input)
 
         return local_input
@@ -426,7 +437,6 @@ class NeuralNetwork:
         :return: 
         """
 
-        test_summ = []
         self.input = tf.placeholder(tf.float32, [None, self.input_size], name='input')
         self.target = tf.placeholder(tf.float32, [None, self.n_classes], name='labels')
         self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
@@ -437,16 +447,21 @@ class NeuralNetwork:
             self._make_computing_graph(self.input, self.struct)
 
         with tf.name_scope('Loss'):
-            # here 'for' step need to optimize, when self.out[index].shape != 1
+            # here 'for' step need to optimize, when self.out[index].shape[1] != 1
+            idx = 0  # idx may solve the problem above
             for index in range(len(self.out)):
                 self.loss.append(self._make_loss(self.out[index],
-                                                 tf.slice(self.target, [0, index], [-1, self.out[index].shape[1]]),
+                                                 tf.slice(self.target, [0, idx], [-1, self.out[index].shape[1]]),
                                                  self.loss_name_list[index]))
+
+                # reference:
+                # https://stackoverflow.com/questions/40666316/how-to-get-tensorflow-tensor-dimensions-shape-as-int-values
+                idx += self.out[index].get_shape().as_list()[1]
 
         loss_summ = []
         for index, name in enumerate(self.loss_name_list):
             loss_summ.append(tf.summary.scalar(name, self.loss[index]))
-        test_summ.extend(loss_summ)
+        self.summ.extend(loss_summ)
 
         # learning_rate_name = ['learning_rate_k']
         with tf.name_scope('Optimizer'):
@@ -457,21 +472,23 @@ class NeuralNetwork:
 
         with tf.name_scope('Accuracy'):
             # here 'for' step need to optimize, when self.out[index].shape != 1
+            idx = 0  # idx may solve the problem above
             for index in range(len(self.out)):
                 self.acc.append(self.get_accuracy(self.out[index],
-                                                  tf.slice(self.target, [0, index], [-1, self.out[index].shape[1]]),
+                                                  tf.slice(self.target, [0, idx], [-1, self.out[index].shape[1]]),
                                                   self.acc_name_list[index]))
+                idx += self.out[index].get_shape().as_list()[1]
 
         acc_summ = []
         for index, name in enumerate(self.acc_name_list):
             acc_summ.append(tf.summary.scalar(name, self.acc[index]))
-        test_summ.extend(acc_summ)
+        self.summ.extend(acc_summ)
 
         self.increment_global_step = tf.assign_add(self.global_step, 1, name='increment_global_step')
         self.increment_epoch_step = tf.assign_add(self.epoch_step, 1, name='increment_epoch_step')
 
-        self.train_merged_summary_op = tf.summary.merge(test_summ)
-        self.test_merged_summary_op = tf.summary.merge(test_summ)
+        self.train_merged_summary_op = tf.summary.merge_all()
+        self.test_merged_summary_op = tf.summary.merge(self.summ)
 
     def save_model(self):
         saver = tf.train.Saver(tf.global_variables())
@@ -551,6 +568,15 @@ class NeuralNetwork:
                     print(
                         'average %s => %.2f%%' % (self.acc_name_list[index], epoch_acc[index] / number_of_batch * 100))
                     print('test %s => %.2f%%' % (self.acc_name_list[index], test_acc[index] * 100))
+
+
+                # drawing confusion matrix
+                if (k + 1) % 10 == 0:
+                    # print('-' * 75)
+                    feed_dict = {self.input: test_X, self.target: test_Y, self.keep_prob: 1}
+                    epoch_out = self.sess.run(self.out, feed_dict=feed_dict)
+                    input_data.get_confusion_matrix(epoch_out)
+                    # print('-' * 75)
 
                 print()
 
