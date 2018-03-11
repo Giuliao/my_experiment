@@ -72,10 +72,32 @@ class DataGenerator:
             e, v = scipy.linalg.eigh(n)  # np.linalg.eig will return the complex data sometimes...
             yield v.astype(np.float32), m, y
 
-    def get_classify_confusion_matrix(self, predict):
-        pass
+    def get_classify_confusion_matrix(self, predict, class_number_list):
+        upper_bound = self.node_num // 2 if self.node_num % 2 == 0 else self.node_num // 2 + 1
+        labels = [str((k, j)) for k in range(1, upper_bound + 1) for j in range(1, self.node_num + 1)]
+        values = np.zeros((self.node_num * upper_bound, self.node_num * upper_bound)).astype(np.uint32)
+        df = pd.DataFrame(values, columns=labels, index=labels[::-1])
 
-    def get_confusion_matrix(self, predict, problem_type=True):
+        for i in range(len(predict[0])):
+
+            x = np.argmax(predict[0][i])+1
+            y = np.argmax(predict[1][i])+1
+
+            r = np.argmax(self.test_Y.values[i][:class_number_list[0]])+1
+            s = np.argmax(self.test_Y.values[i][class_number_list[0]:])+1
+
+            idx_predict = str('({}, {})'.format(x, y))
+            idx_real = str('({}, {})'.format(r, s))
+            df[idx_real][idx_predict] += 1
+
+        f, ax = plt.subplots(figsize=(18, 18))
+        sns.heatmap(df, annot=True, linewidths=2, fmt='d', ax=ax)
+        plt.savefig('./assets/confusion_matrix')
+        plt.close()
+
+
+
+    def get_confusion_matrix(self, predict):
 
         upper_bound = self.node_num // 2 if self.node_num % 2 == 0 else self.node_num // 2 + 1
         labels = [str((k, j)) for k in range(1, upper_bound + 1) for j in range(1, self.node_num + 1)]
@@ -98,6 +120,10 @@ class DataGenerator:
             idx_predict = str('({}, {})'.format(x, y))
             idx_real = str('({}, {})'.format(r, s))
             df[idx_real][idx_predict] += 1
+
+
+
+
 
         f, ax = plt.subplots(figsize=(18, 18))
         sns.heatmap(df, annot=True, linewidths=2, fmt='d', ax=ax)
