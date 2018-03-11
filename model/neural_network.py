@@ -42,6 +42,8 @@ class NeuralNetwork:
         self.acc_name_list = con.acc_name_list
         self.optimizer_name_list = con.optimizer_name_list
         self.loss_name_list = con.loss_name_list
+        self.problem_type = con.problem_type_list
+        self.class_number_list = con.class_number_list
 
         # self.path_to_save_predict = con.path_to_save_predict
 
@@ -104,15 +106,14 @@ class NeuralNetwork:
 
         with tf.name_scope(name):
             if regression:
-                if self.W:
-                    with tf.name_scope('weight_decay'):
-                        weight_decay = get_reg_loss(self.W, self.b)
-
-                    loss = tf.reduce_sum(tf.pow(output - target, 2)) + self.reg_lambda * weight_decay
-                else:
-                    loss = tf.reduce_sum(tf.pow(output - target, 2))
+                loss = tf.reduce_sum(tf.pow(output - target, 2))
             else:
-                loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=target))
+                loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=output, labels=target))
+
+            if self.W:
+                with tf.name_scope('weight_decay'):
+                    weight_decay = get_reg_loss(self.W, self.b)
+                    loss += self.reg_lambda * weight_decay
 
         return loss
 
@@ -419,8 +420,11 @@ class NeuralNetwork:
                     act=self.activate_func[local_struct[layer_name]['act']]
                 )
                 if 'tear' in layer_name:
+
+                    idx = 0
                     for i in range(len(self.optimizer_name_list)):
-                        self.out.append(tf.slice(local_input, [0, i], [-1, 1]))
+                        self.out.append(tf.slice(local_input, [0, idx], [-1, self.class_number_list[i]]))
+                        idx += self.class_number_list[i]
                 else:
                     self.out.append(local_input)
 
@@ -452,11 +456,13 @@ class NeuralNetwork:
             for index in range(len(self.out)):
                 self.loss.append(self._make_loss(self.out[index],
                                                  tf.slice(self.target, [0, idx], [-1, self.out[index].shape[1]]),
-                                                 self.loss_name_list[index]))
+                                                 self.loss_name_list[index],
+                                                 regression=self.problem_type[index]))
 
                 # reference:
                 # https://stackoverflow.com/questions/40666316/how-to-get-tensorflow-tensor-dimensions-shape-as-int-values
-                idx += self.out[index].get_shape().as_list()[1]
+                # idx += self.out[index].get_shape().as_list()[1]
+                idx += self.class_number_list[index]
 
         loss_summ = []
         for index, name in enumerate(self.loss_name_list):
@@ -476,8 +482,10 @@ class NeuralNetwork:
             for index in range(len(self.out)):
                 self.acc.append(self.get_accuracy(self.out[index],
                                                   tf.slice(self.target, [0, idx], [-1, self.out[index].shape[1]]),
-                                                  self.acc_name_list[index]))
-                idx += self.out[index].get_shape().as_list()[1]
+                                                  self.acc_name_list[index],
+                                                  regression=self.problem_type[index]))
+
+                idx += self.class_number_list[index]
 
         acc_summ = []
         for index, name in enumerate(self.acc_name_list):
@@ -571,12 +579,12 @@ class NeuralNetwork:
 
 
                 # drawing confusion matrix
-                if (k + 1) % 10 == 0:
-                    # print('-' * 75)
-                    feed_dict = {self.input: test_X, self.target: test_Y, self.keep_prob: 1}
-                    epoch_out = self.sess.run(self.out, feed_dict=feed_dict)
-                    input_data.get_confusion_matrix(epoch_out)
-                    # print('-' * 75)
+                # if (k + 1) % 10 == 0:
+                #     # print('-' * 75)
+                #     feed_dict = {self.input: test_X, self.target: test_Y, self.keep_prob: 1}
+                #     epoch_out = self.sess.run(self.out, feed_dict=feed_dict)
+                #     input_data.get_confusion_matrix(epoch_out)
+                #     # print('-' * 75)
 
                 print()
 
