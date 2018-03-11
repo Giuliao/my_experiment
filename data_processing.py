@@ -34,7 +34,6 @@ class DataGenerator:
         valid_X = df.iloc[:, : -self.n_classes].reset_index(drop=True)
         valid_Y = df.iloc[:, -self.n_classes:].reset_index(drop=True)
         train_X, test_X, train_Y, test_Y = train_test_split(valid_X, valid_Y, test_size=test_size)
-
         # train_X = df.iloc[:, : -self.n_classes].reset_index(drop=True)
         # train_Y = df.iloc[:, -self.n_classes:].reset_index(drop=True)
         # test_X = df.iloc[-4096:, : -self.n_classes].reset_index(drop=True)
@@ -68,12 +67,15 @@ class DataGenerator:
         for x, y in self.get_train_data(1):
             m = x.values.reshape((self.node_num, self.node_num))
             # print(m+m.T)
-            m = m + m.T
-            # m = np.dot(m, m.T) + np.dot(m.T, m)
-            e, v = scipy.linalg.eigh(m)  # np.linalg.eig will return the complex data sometimes...
+            # n = m + m.T
+            n = np.dot(m, m.T) + np.dot(m.T, m)
+            e, v = scipy.linalg.eigh(n)  # np.linalg.eig will return the complex data sometimes...
             yield v.astype(np.float32), m, y
 
-    def get_confusion_matrix(self, predict):
+    def get_classify_confusion_matrix(self, predict):
+        pass
+
+    def get_confusion_matrix(self, predict, problem_type=True):
 
         upper_bound = self.node_num // 2 if self.node_num % 2 == 0 else self.node_num // 2 + 1
         labels = [str((k, j)) for k in range(1, upper_bound + 1) for j in range(1, self.node_num + 1)]
@@ -104,31 +106,36 @@ class DataGenerator:
 
 
 def get_shift_mat(m, new_label):
-    my_dict = {}
-    ss = set(new_label)
+    row_list = []
+    record_dict = {}
+    ss = list(set(new_label))
+    ss.sort()
     for s in ss:
         for i, l in enumerate(new_label):
             if s == l:
-                if s not in my_dict:
-                    my_dict[s] = m[[i], :]
+                if s not in record_dict:
+                    record_dict[s] = len(row_list)
+                    row_list.append(m[[i], :])
                 else:
-                    my_dict[s] = np.vstack((my_dict[s], m[[i], :]))
+                    idx = record_dict[s]
+                    row_list[idx] = np.vstack((row_list[idx], m[[i], :]))
 
     final_m = None
-    for k in my_dict.keys():
+    for k in row_list:
         if final_m is None:
-            final_m = my_dict[k][:, :]
+            final_m = k[:, :]
         else:
-            final_m = np.vstack((final_m, my_dict[k]))
+            final_m = np.vstack((final_m, k))
 
     return final_m
 
 
 def highlight_out_edge(m, new_label):
+    new_label.sort()
     for i in range(m.shape[0]):
-        for j in range(i+1, m.shape[0]):
+        for j in range(m.shape[0]):
             if m[i][j] != 0 and new_label[i] != new_label[j]:
-                m[i][j] = m[j][i] = m[i][j]*5
+                m[i][j] = m[i][j]*5
 
 
 def get_cluser_data():
@@ -149,7 +156,7 @@ def get_cluser_data():
         highlight_out_edge(H, new_label)
         df = df.append(pd.DataFrame(np.hstack((H.reshape((1, -1)), y.values)), columns=columns))
         # print(df.head())
-    df.to_csv('./data/directed/node_14/c_4_r_14.csv')
+    df.to_csv('./data/directed/node_7/c_4_h_r_7_modified.csv')
     print('finished')
 
 
@@ -245,12 +252,12 @@ def make_receptive_by_sub_graph():
 if __name__ == '__main__':
     # test_image()
     # make_receptive_by_sub_graph()
-    get_cluser_data()
-    # con = config.Config()
-    # data = DataGenerator(con)
-    #
-    # for index in range(data.train_X.shape[0]):
-    #     data.get_visulization(data.train_X.iloc[index, :].values, (10, 10))
+    # get_cluser_data()
+    con = config.Config()
+    data = DataGenerator(con)
+
+    for index in range(data.train_X.shape[0]):
+        data.get_visulization(data.train_X.iloc[index, :].values, (7, 7))
 
         # print(x.values.reshape((12, 12)))
     #
