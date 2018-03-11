@@ -13,7 +13,7 @@ class Config:
                 # "./data/undirected/node_10/bfs_v1_16_r_3.csv",
                 # "./data/undirected/node_10/bfs_v1_16_r_4.csv",
                 # "./data/undirected/node_10/bfs_v1_16_r_1.csv"
-                "./data/directed/node_10/r_10.csv"
+                "./data/directed/node_7/c_4_h_r_7_modified.csv"
             ]
 
             self.decay_steps = 200
@@ -22,7 +22,7 @@ class Config:
             self.input_size = 3920
             self.image_size = 28
             self.channel = 5
-            self.node_num = 10
+            self.node_num = 7
             self.structure = {
                 'structure': ['cnn1', 'pool1', 'cnn2', 'pool2',
                               'cnn3', 'cnn4', 'pool3', 'full1',
@@ -125,6 +125,9 @@ class Config:
             self.acc_name_list = ["acc_r", "acc_s"]
             self.optimizer_name_list = ["optimizer_r", "opimizer_s"]
             self.loss_name_list = ["loss_r", "loss_s"]
+            self.problem_type_list = [True, False]
+            self.class_number_list = [1, 10]
+
         else:
             with open(json_file, 'r') as f:
                 json_dict = json.loads(f.read())
@@ -153,6 +156,8 @@ class Config:
                 self.optimizer_name_list = json_dict["optimizer_name_list"]
                 self.loss_name_list = json_dict["loss_name_list"]
                 self.node_num = json_dict["node_num"]
+                self.problem_type_list = json_dict["problem_type_list"]
+                self.class_number_list = json_dict["class_number_list"]
 
                 print('=> json file read finished...')
 
