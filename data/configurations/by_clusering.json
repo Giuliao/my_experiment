@@ -1,14 +1,14 @@
 {
   "file_name_list": [
-    "./data/directed/node_10/c_4_r_10.csv"
+    "./data/directed/node_7/r_s_c_4_h_r_7_modified.csv"
   ],
   "decay_steps": 200,
   "decay_rate": 0.99,
-  "n_classes": 2,
-  "input_size": 100,
-  "image_size": 10,
+  "n_classes": 15,
+  "input_size": 49,
+  "image_size": 7,
   "channel": 1,
-  "node_num": 10,
+  "node_num": 7,
   "acc_name_list": [
     "acc_r",
     "acc_s"
@@ -22,13 +22,26 @@
     "loss_s"
   ],
 
+  "problem_type_list" : [
+    false,
+    false
+  ],
+  "class_number_list" :[
+    5,
+    10
+  ],
 
   "structure": {
     "structure": [
       "conv1",
+      "max_pool1",
       "conv2",
+      "max_pool2",
       "conv3",
+      "max_pool3",
       "conv4",
+      "max_pool4",
+      "conv5",
       "full1",
       "full2",
       "out_tear_layer"
@@ -46,7 +59,24 @@
         1,
         1,
         1
-      ]
+      ],
+      "visualization": true
+    },
+    "max_pool1": {
+      "ksize": [
+        1,
+        3,
+        3,
+        1
+      ],
+      "padding": "SAME",
+      "strides": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "dropout": false
     },
     "conv2": {
       "struct": [
@@ -58,19 +88,35 @@
       "padding": "SAME",
       "strides": [
         1,
+        1,
+        1,
+        1
+      ]
+    },
+    "max_pool2": {
+      "ksize": [
+        1,
         2,
         2,
         1
-      ]
+      ],
+      "padding": "VALID",
+      "strides": [
+        1,
+        2,
+        2,
+        1
+      ],
+      "dropout": false
     },
     "conv3": {
       "struct": [
-        5,
-        5,
+        3,
+        3,
         64,
         128
       ],
-      "padding": "VALID",
+      "padding": "SAME",
       "strides": [
         1,
         1,
@@ -78,39 +124,86 @@
         1
       ]
     },
+    "max_pool3": {
+      "ksize": [
+        1,
+        3,
+        3,
+        1
+      ],
+      "padding": "SAME",
+      "strides": [
+        1,
+        2,
+        2,
+        1
+      ],
+      "dropout": false
+    },
     "conv4": {
       "struct": [
-        1,
-        1,
+        2,
+        2,
         128,
         256
       ],
-      "padding": "VALID",
+      "padding": "SAME",
       "strides": [
         1,
         1,
         1,
+        1
+      ]
+    },
+    "max_pool4": {
+      "ksize": [
+        1,
+        2,
+        2,
+        1
+      ],
+      "padding": "SAME",
+      "strides": [
+        1,
+        2,
+        2,
+        1
+      ],
+      "dropout": false
+    },
+    "conv5": {
+      "struct": [
+        1,
+        1,
+        256,
+        512
+      ],
+      "padding": "VALID",
+      "strides": [
+        1,
+        2,
+        2,
         1
       ]
     },
     "full1": {
+      "struct": [
+        512,
+        256
+      ],
+      "dropout": false
+    },
+    "full2": {
       "struct": [
         256,
         128
       ],
       "dropout": false
     },
-    "full2": {
-      "struct": [
-        128,
-        64
-      ],
-      "dropout": false
-    },
     "out_tear_layer": {
       "struct": [
-        64,
-        2
+        128,
+        15
       ],
       "act": "identity"
     }
