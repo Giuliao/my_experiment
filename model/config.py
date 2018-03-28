@@ -13,16 +13,18 @@ class Config:
                 # "./data/undirected/node_10/bfs_v1_16_r_3.csv",
                 # "./data/undirected/node_10/bfs_v1_16_r_4.csv",
                 # "./data/undirected/node_10/bfs_v1_16_r_1.csv"
-                "./data/directed/node_7/c_4_h_r_7_modified.csv"
+                # "./data/non-isomorphism/convert_data/node_num_8.csv"
+                "r_8.csv"
             ]
-
+            self.dir_path = './data/directed/node_8/'
             self.decay_steps = 200
             self.decay_rate = 0.99
             self.n_classes = 2
             self.input_size = 3920
             self.image_size = 28
             self.channel = 5
-            self.node_num = 7
+            self.node_num = 8
+            self.test_data_ratio = 0.3
             self.structure = {
                 'structure': ['cnn1', 'pool1', 'cnn2', 'pool2',
                               'cnn3', 'cnn4', 'pool3', 'full1',
@@ -127,6 +129,10 @@ class Config:
             self.loss_name_list = ["loss_r", "loss_s"]
             self.problem_type_list = [True, False]
             self.class_number_list = [1, 10]
+            self.classifier = {
+                "loss_r": "svm",
+                "loss_s": "svm"
+            }
 
         else:
             with open(json_file, 'r') as f:
@@ -158,6 +164,9 @@ class Config:
                 self.node_num = json_dict["node_num"]
                 self.problem_type_list = json_dict["problem_type_list"]
                 self.class_number_list = json_dict["class_number_list"]
+                self.test_data_ratio = json_dict["test_data_ratio"]
+                self.dir_path = json_dict["dir_path"]
+                self.classifier = json_dict["classifier"]
 
                 print('=> json file read finished...')
 
