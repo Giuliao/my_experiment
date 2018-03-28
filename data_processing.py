@@ -9,7 +9,9 @@ from sklearn import preprocessing
 from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split
 from model import config
+import consensus_algo
 import matplotlib
+import os
 
 # https://stackoverflow.com/questions/37604289/
 # tkinter-tclerror-no-display-name-and-no-display-environment-variable
@@ -21,11 +23,18 @@ import seaborn as sns
 class DataGenerator:
     def __init__(self, con):
         self.file_name_list = con.file_name_list
+        self.dir_path = con.dir_path
         self.n_classes = con.n_classes
         self.test_data_ratio = con.test_data_ratio
-        self.valid_X, self.valid_Y, self.train_X, \
-        self.train_Y, self.test_X, self.test_Y = self.read_from_csv_list()
 
+        self.origin_df = None
+        self.valid_X = None
+        self.valid_Y = None
+        self.train_X = None
+        self.train_Y = None
+        self.test_X = None
+        self.test_Y = None
+        self.read_from_csv_list()
 
         self.total_data_num = self.valid_X.shape[0]
         self.total_train = self.train_X.shape[0]
@@ -36,33 +45,67 @@ class DataGenerator:
         print('=> data init finished')
 
     def read_from_csv_list(self):
-        """ read data from a csv file
+        """ init data from a csv file
         :return: 
         """
         pd_ll = []
-        for local_file in self.file_name_list:
+        for local_file in map(lambda x: self.dir_path+x, self.file_name_list):
             pd_ll.append(pd.read_csv(local_file, header=0, index_col=0))
 
         # note: the data maybe already sampled because of the preprocess step
-        df = pd.concat(pd_ll)
+        self.origin_df = pd.concat(pd_ll)
 
-        # sift data
+        # select data
         # df = df.loc[(df.r == 2) & (df.s == 6), :]
         # print(df.head())
 
-        valid_X = df.iloc[:, : -self.n_classes].reset_index(drop=True)
-        valid_Y = df.iloc[:, -self.n_classes:].reset_index(drop=True)
-        train_X, test_X, train_Y, test_Y = train_test_split(valid_X, valid_Y, test_size=self.test_data_ratio)
-        # train_X = df.iloc[:, : -self.n_classes].reset_index(drop=True)
-        # train_Y = df.iloc[:, -self.n_classes:].reset_index(drop=True)
-        # test_X = df.iloc[-4096:, : -self.n_classes].reset_index(drop=True)
-        # test_Y = df.iloc[-4096:, -self.n_classes:].reset_index(drop=True)
+        self.valid_X = self.origin_df.iloc[:, : -self.n_classes].reset_index(drop=True)
+        self.valid_Y = self.origin_df.iloc[:, -self.n_classes:].reset_index(drop=True)
+        self.train_X, self.test_X, self.train_Y, self.test_Y = train_test_split(
+            self.valid_X, self.valid_Y, test_size=self.test_data_ratio
+        )
 
-        print('=> train data size:', train_X.shape[0])
-        print('=> test data size:', test_X.shape[0])
-        print(train_X.head())
-        print(train_Y.head())
-        return valid_X, valid_Y, train_X, train_Y, test_X, test_Y
+        print('=> train data size:', self.train_X.shape[0])
+        print('=> test data size:', self.test_X.shape[0])
+        print(self.train_X.head())
+        print(self.train_Y.head())
+
+    def get_cross_valid_data_set(self, fold=10):
+        """ cross valid
+        
+        :param fold: 
+        :return: 
+        """
+        if not os.path.exists(self.dir_path+'cv/'):
+            os.mkdir(self.dir_path+'cv/')
+
+        df = self.origin_df.sample(frac=1).reset_index(drop=True)
+        total_len = df.shape[0]
+        stride = total_len - total_len // fold
+
+        count = 0
+        i = 0
+        while True:
+            print('-' * 75)
+            if i + stride > total_len:
+                t = pd.concat([df.iloc[i:, :], df.iloc[:stride - (total_len - i)]], axis=0)
+                count += 1
+                i = stride - (total_len - i)
+
+            else:
+                t = df.iloc[i: i + stride, :]
+                count += 1
+                i += stride
+
+            print('=> count', count)
+            print('=> size', t.shape[0])
+            print(t.head())
+            print(t.tail())
+            t.to_csv(self.dir_path + 'cv/{}_fold_cv_data_{}'.format(fold, count))
+            print('=>', self.dir_path + 'cv/{}_fold_cv_data_{}'.format(fold, count))
+
+            if count == fold:
+                break
 
     def get_train_data(self, batch_size):
         """ get the sampled train data
@@ -86,30 +129,15 @@ class DataGenerator:
         """
         return self.test_X, self.test_Y
 
-    @staticmethod
-    def get_visualization(H, shape=None):
-        """ visualize a matrix in heat map
-        :param H: 
-        :param shape: 
-        :return: 
-        """
-        if shape:
-            H = H.reshape(shape)
-        # H = np.flipud(H)  # flip matrix up 2 down because plt.imshow will flip origin matrix
-        sns.heatmap(H, fmt='d', linewidths=0.05)
-        # plt.imshow(H, cmap=plt.cm.jet, interpolation='nearest', origin='low')
-        plt.show()
-
     def get_eigenvectors(self):
         """ calc the eignvectors of a matrix 
         :return: 
         """
         for x, y in self.get_origin_data(1):
             m = x.values.reshape((self.node_num, self.node_num))
-            # print(m+m.T)
-            n = m + m.T
-            # n = np.dot(m, m.T) + np.dot(m.T, m)
-            e, v = scipy.linalg.eigh(n)  # np.linalg.eig will return the complex data sometimes...
+            data = consensus_algo.NetworkAlgo(adjMatrix=m, directed=True)
+            e, v = data.get_eigen_vectors(sym_func=data.get_laplacian_matrix)
+            # why the type must be np.float32, i forgot >.<
             yield v.astype(np.float32), m, y
 
     def get_classify_confusion_matrix(self, predict):
@@ -120,7 +148,7 @@ class DataGenerator:
         upper_bound = self.node_num // 2 if self.node_num % 2 == 0 else self.node_num // 2 + 1
         labels = [str((k, j)) for k in range(1, upper_bound + 1) for j in range(1, self.node_num + 1)]
         values = np.zeros((self.node_num * upper_bound, self.node_num * upper_bound)).astype(np.uint32)
-        df = pd.DataFrame(values, columns=labels, index=labels[::-1])
+        df = pd.DataFrame(values, columns=labels, index=labels)
 
         for i in range(len(predict[0])):
             x = np.argmax(predict[0][i]) + 1
@@ -147,7 +175,7 @@ class DataGenerator:
         upper_bound = self.node_num // 2 if self.node_num % 2 == 0 else self.node_num // 2 + 1
         labels = [str((k, j)) for k in range(1, upper_bound + 1) for j in range(1, self.node_num + 1)]
         values = np.zeros((self.node_num * upper_bound, self.node_num * upper_bound)).astype(np.uint32)
-        df = pd.DataFrame(values, columns=labels, index=labels[::-1])
+        df = pd.DataFrame(values, columns=labels, index=labels)
 
         for i in range(len(predict[0])):
             x = predict[0][i]
@@ -178,67 +206,43 @@ class DataGenerator:
             self.get_classify_confusion_matrix(predict)
 
 
+def get_visualization(H, shape=None):
+    """ visualize a matrix in heat map
+    :param H: 
+    :param shape: 
+    :return: 
+    """
+    if shape:
+        H = H.reshape(shape)
+    # H = np.flipud(H)  # flip matrix up 2 down because plt.imshow will flip origin matrix
+    sns.heatmap(H, fmt='d', linewidths=0.05)
+    # plt.imshow(H, cmap=plt.cm.jet, interpolation='nearest', origin='low')
+    plt.show()
+
+
 def get_degree_info_from_matix(adjmatrix):
     """ statistical information of a matrix
     :param adjmatrix: 
     :return: 
     """
-    in_degree_list = []
+    indegree_list = []
+    outdegree_list = []
     node_num = adjmatrix.shape[0]
 
     for i in range(node_num):
-        count = 0
+        in_count = 0
+        out_count = 0
         for j in range(node_num):
-            count += adjmatrix[j][i]
-        in_degree_list.append(count)
+            in_count += adjmatrix[j][i]
+            out_count += adjmatrix[i][j]
+        indegree_list.append(in_count)
+        outdegree_list.append(out_count)
 
-    min_in_degree = node_num
-    min_count = 0
-    max_in_degree = -1
-    max_count = 0
+    df = pd.DataFrame({
+        'indegree': indegree_list,
+        'outdegree': outdegree_list
+    })
 
-    my_data = {
-        'min_in_degree': [],
-        'min_num': [],
-        'max_in_degree': [],
-        'max_num': [],
-        'mean_in_degree': [],
-        'var_in_degree': []
-
-    }
-
-    in_degree_sum = 0
-    for v in in_degree_list:
-        if v > max_in_degree:
-            max_in_degree = v
-            max_count = 1
-        elif v == max_in_degree:
-            max_count += 1
-
-        if v < min_in_degree:
-            min_in_degree = v
-            min_count = 1
-        elif v == min_in_degree:
-            min_count += 1
-
-        in_degree_sum += v
-
-    my_data['min_in_degree'].append(min_in_degree)
-    my_data['min_num'].append(min_count)
-    my_data['max_in_degree'].append(max_in_degree)
-    my_data['max_num'].append(max_count)
-
-    in_degree_mean = in_degree_sum * 1.0 / node_num
-    in_degree_var = 0
-    for v in in_degree_list:
-        in_degree_var += (v - in_degree_mean) ** 2
-    in_degree_var = in_degree_var * 1.0 / node_num
-
-    my_data['mean_in_degree'].append(in_degree_mean)
-    my_data['var_in_degree'].append(in_degree_var)
-
-    df = pd.DataFrame(my_data)
-    # print(df.head())
     return df
 
 
@@ -252,18 +256,76 @@ def get_degree_info(path, file_name, node_num, class_num=2):
     :return: 
     """
     df = pd.read_csv(path + file_name, header=0, index_col=0).reset_index(drop=True)
-    new_df = None
-    for i in range(df.shape[0]):
-        if new_df is None:
-            new_df = get_degree_info_from_matix(df.iloc[i, :-class_num].values.reshape(node_num, node_num))
-        else:
-            new_df = pd.concat(
-                [new_df, get_degree_info_from_matix(df.iloc[i, :-class_num].values.reshape(node_num, node_num))])
+    columns_in = [
+        'indegree_mean', 'indegree_mode_mean', 'indegree_var', 'indegree_max',
+        'indegree_max_count', 'indegree_min', 'indegree_min_count', 'indegree_median'
+    ]
+    columns_out = [
+        'outdegree_mean', 'outdegree_mode_mean', 'outdegree_var', 'outdegree_max',
+        'outdegree_max_count', 'outdegree_min', 'outdegree_min_count', 'outdegree_median'
+    ]
 
-    print(new_df.sample(100))
-    new_df.info()
+    new_df = None
+    # global_degree_info = None
+    for i in range(df.shape[0]):
+        # get data degree info
+        degree_df = get_degree_info_from_matix(df.iloc[i, :-2].values.reshape((node_num, node_num)))
+        out_degree = degree_df.outdegree
+        in_degree = degree_df.indegree
+
+        # if global_degree_info is None:
+        #     global_degree_info = degree_df
+        # else:
+        #     global_degree_info = pd.concat([global_degree_info, degree_df], axis=0)
+        # continue
+
+        # gather max/min intdegree
+        in_max, in_min = \
+            in_degree.max(), in_degree.min()
+        # gather max/min indegree count
+        in_max_count, in_min_count = \
+            in_degree[in_degree == in_max].count(), in_degree[in_degree == in_min].count()
+        # gather basic statistics
+        in_mean, in_mode, in_var, in_median = \
+            in_degree.mean(), in_degree.mode().mean(), in_degree.var(), in_degree.median()
+
+        in_degree_list = \
+            [in_mean, in_mode, in_var, in_max, in_max_count, in_min, in_min_count, in_median]
+
+        in_degree_dict = dict(list(zip(columns_in, in_degree_list)))
+        in_degree_df = pd.DataFrame(in_degree_dict, index=[0])
+
+        # gather max/min outdegree
+        out_max, out_min = \
+            out_degree.max(), out_degree.min()
+        # gather max/min outdegree count
+        out_max_count, out_min_count = \
+            out_degree[out_degree == out_max].count(), out_degree[out_degree == out_min].count()
+        # gather basic statistics
+        out_mean, out_mode, out_var, out_median = \
+            out_degree.mean(), out_degree.mode().mean(), out_degree.var(), out_degree.median()
+
+        out_degree_list = \
+            [out_mean, out_mode, out_var, out_max, out_max_count, out_min, out_min_count, out_median]
+
+        out_degree_dict = dict(list(zip(columns_out, out_degree_list)))
+        out_degree_df = pd.DataFrame(out_degree_dict, index=[0])
+
+        concat_degree_df = pd.concat([in_degree_df, out_degree_df], axis=1)
+        if new_df is None:
+            new_df = concat_degree_df
+        else:
+            new_df = pd.concat([new_df, concat_degree_df], axis=0)
+
+        if i == 100:
+            print(new_df.head(10))
 
     return new_df
+    # return global_degree_info
+
+
+def get_residual_info():
+    pass
 
 
 def get_cluster_info(dir_path, file_name, node_num, K):
@@ -285,13 +347,61 @@ def get_cluster_info(dir_path, file_name, node_num, K):
     index = 0
     for i in range(0, df.shape[0], node_num):
         for j in range(node_num):
-            new_df.iloc[index, df.iloc[i, -1]] += 1
+            new_df.iloc[index, df.iloc[i + j, -1]] += 1
         index += 1
 
     print(new_df.sample(100))
     # print(new_df.tail(10))
 
     return new_df
+
+
+def get_node2vec_vectors(dir_path, file_name, node_num):
+    con = config.Config()
+    con.file_name_list = [dir_path + file_name]
+    con.node_num = node_num
+    data = DataGenerator(con)
+
+    from model import node2vec
+    import consensus_algo
+    import time
+    print('=> start node2vec')
+    start = time.time()
+    df = None
+    num_walks = 10
+    walk_length = 5
+    is_directed = True
+    columns = None
+
+    # Return hyperparameter. Default is 1.
+    p = 1
+    # Inout hyperparameter. Default is 1.
+    q = 1
+
+    for x, y in data.get_origin_data(1):
+        x = x.values.reshape((node_num, node_num))
+        m = consensus_algo.NetworkAlgo(adjMatrix=x, directed=True)
+        G = node2vec.Graph(m.G, is_directed, p, q)
+        G.preprocess_transition_probs()
+        node2vec.walks = G.simulate_walks(num_walks, walk_length)
+        # size need to be a variable
+        vectors = node2vec.learn_embeddings(node2vec.walks, size=7)
+        if df is None:
+            # the size of columns need to be a variable
+            columns = ['d_{}'.format(k) for k in range(7)]
+            columns.extend(y.columns)
+            tmp = np.hstack([vectors, np.vstack([y.values] * vectors.shape[0])])
+            # dtype may be a potential problem
+            df = pd.DataFrame(tmp, dtype=np.float, columns=columns)
+        else:
+            tmp = np.hstack([vectors, np.vstack([y.values] * vectors.shape[0])])
+            df = pd.concat([df, pd.DataFrame(tmp, columns=columns, dtype=np.float)], axis=0)
+
+    print('=> embedding vectors data:')
+    print(df.sample(100))
+    df.to_csv(dir_path + "node2vec_emb_" + file_name)
+    print('=> save finished:', dir_path + "node2vec_emb_" + file_name)
+    print('=> time used', time.time() - start)
 
 
 def get_eigen_vectors(dir_path, file_name, node_num):
@@ -303,7 +413,7 @@ def get_eigen_vectors(dir_path, file_name, node_num):
     :return: 
     """
 
-    # read the datagenerator class
+    # read the data generator class
     con = config.Config()
     con.file_name_list = [dir_path + file_name]
     con.node_num = node_num
@@ -318,11 +428,12 @@ def get_eigen_vectors(dir_path, file_name, node_num):
     # y: labels
     for v, x, y in data.get_eigenvectors():
         #  the column of v corresponding to the eigenvector
-        tmp = np.hstack([v.T, np.vstack([y.values] * v.shape[0])])
+        # v or v.T, it' s a question...
+        tmp = np.hstack([v, np.vstack([y.values] * v.shape[0])])
         if df is None:
             # v.shape[0] is the number of eigenvectors
             columns = [str(i) for i in range(v.shape[0])]
-            columns.extend(['r', 's'])
+            columns.extend(y.columns)
             df = pd.DataFrame(tmp, columns=columns)
 
         else:
@@ -540,7 +651,7 @@ def highlight_out_edge(m, new_label, theta=5):
     return m
 
 
-def get_cluser_matrix_data():
+def get_matrix_data_with_channel():
     """ cluster the adjacent matrix 
     3 different k clusters of co-cluster matrix as 3 channels of a image 
     :return: 
@@ -674,9 +785,24 @@ def test_image():
 def pipeline_all_preprocess_data(dir_path, origin_file_name, cluster_file_name, node_num, class_number,
                                  keep_statistical_features=False):
     """ make the final features
+    
+    --------
+    examples:
+        before call this function:
+            get_eigen_vectors('./data/non-isomorphism/convert_data/', 'node_num_8.csv', 8)
+            k_means_cluster_for_eigenvectors('./data/non-isomorphism/convert_data/',
+                                                        'eigenvector_node_num_8.csv', 8, 2)
+        then:
+            pipeline_all_preprocess_data('./data/non-isomorphism/convert_data/', 'node_num_8.csv',
+                                 "k_means_cluster_eignvector_r_8.csv", 8, 2, keep_statistical_features=True)
+    
     :param dir_path: 
     :param cluster_file_name: 
+        after executing: 
+            get_eigen_vectors, 
+            *_cluster_for_eigenvectors(e.g., k_means_cluster_for_eigenvectors)
     :param origin_file_name:
+            orgin adjacent matrix with r, s labels
     :param node_num:
     :param class_number:
     :param keep_statistical_features:
@@ -720,9 +846,116 @@ def pipeline_all_preprocess_data(dir_path, origin_file_name, cluster_file_name, 
     print('=> finished time', time.time() - start_time)
 
 
+def in_degree_count(adj_matrix):
+    local_dict = {}
+
+    for j in range(adj_matrix.shape[0]):
+        count = 0
+        for i in range(adj_matrix.shape[1]):
+            if adj_matrix[i][j] == 1:
+                count += 1
+
+        if count not in local_dict:
+            local_dict[count] = 1
+        else:
+            local_dict[count] += 1
+
+    return local_dict
+
+
+def statistic_in_degree(r_5_data_r_1_s_1, node_num):
+    global_dict = {}
+    global_dict_degree = {'indegree': [], 'count': []}
+
+    for i in range(r_5_data_r_1_s_1.shape[0]):
+        adj_matrix = r_5_data_r_1_s_1.iloc[i, :-2].values.reshape((node_num, node_num)).astype(np.int8)
+        # print(adj_matrix)
+        local_dict = in_degree_count(adj_matrix)
+        # print(local_dict)
+        if local_dict:
+            for k in local_dict.keys():
+                if 'in_degree_' + str(k) not in global_dict:
+                    global_dict['in_degree_' + str(k)] = [local_dict[k]]
+                else:
+                    global_dict['in_degree_' + str(k)][0] += local_dict[k]
+                global_dict_degree['indegree'].append('indegree_' + str(k))
+                global_dict_degree['count'].append(local_dict[k])
+
+    return global_dict, global_dict_degree
+
+
+def draw_bar(dir_path, file_name, node_num):
+    r_5_data = pd.read_csv(dir_path + file_name[0], header=0, index_col=0).reset_index(drop=True)
+    r_6_data = pd.read_csv(dir_path + file_name[1], header=0, index_col=0).reset_index(drop=True)
+    r_7_data = pd.read_csv(dir_path + file_name[2], header=0, index_col=0).reset_index(drop=True)
+    for r in range(2):
+        for s in range(2):
+
+            data0 = r_5_data.loc[(r_5_data.r == r) & (r_5_data.s == s), :]
+            data1 = r_6_data.loc[(r_6_data.r == r) & (r_6_data.s == s), :]
+            data2 = r_7_data.loc[(r_7_data.r == r) & (r_7_data.s == s), :]
+            # degree_df problem with returning empty list
+            local_dict0, degree_count_dict0 = statistic_in_degree(data0, node_num[0])
+            local_dict1, degree_count_dict1 = statistic_in_degree(data1, node_num[1])
+            local_dict2, degree_count_dict2 = statistic_in_degree(data2, node_num[2])
+
+            if local_dict0 and local_dict1 and local_dict2:
+                plt.subplot(131)
+                sns.boxplot(x='indegree', y='count',
+                            data=pd.DataFrame(degree_count_dict0).sort_values(by='indegree', ascending=True))
+                plt.subplot(132)
+                sns.boxplot(x='indegree', y='count',
+                            data=pd.DataFrame(degree_count_dict1).sort_values(by='indegree', ascending=True))
+                plt.subplot(133)
+                sns.boxplot(x='indegree', y='count',
+                            data=pd.DataFrame(degree_count_dict2).sort_values(by='indegree', ascending=True))
+                plt.show()
+
+
 if __name__ == '__main__':
-    # con = config.Config()
-    # data = DataGenerator(con)
-    # k_means_cluster_for_eigenvectors('./data/non-isomorphism/convert_data/', 'eignvector_r_8.csv', 8, 2)
-    pipeline_all_preprocess_data('./data/non-isomorphism/convert_data/', 'node_num_8.csv',
-                                 "k_means_cluster_eignvector_r_8.csv", 8, 2, keep_statistical_features=True)
+    con = config.Config()
+    data = DataGenerator(con)
+    data.get_cross_valid_data_set()
+    # get_eigen_vectors('./data/directed/node_7/', 'r_7_modified.csv', 7)
+    # k_means_cluster_for_eigenvectors('./data/directed/node_7/', 'eigenvector_r_7_modified.csv', 7, 2)
+
+    # pipeline_all_preprocess_data('./data/directed/node_7/', 'r_7_modified.csv',
+    #                              'k_means_cluster_eigenvector_r_7_modified.csv', 7, 2)
+
+    # draw_bar('./data/directed/', ['node_5/r_5.csv', 'node_6/r_6.csv', 'node_7/r_7.csv'], [5, 6, 7])
+
+    ## gather degree information
+    # labels = pd.read_csv('./data/directed/node_7/r_7_modified.csv',
+    #                      header=0, index_col=0).iloc[:,-2:].reset_index(drop=True)
+    # df = get_degree_info('./data/directed/node_7/', 'r_7_modified.csv', 7, 2).reset_index(drop=True)
+    # df = pd.concat([df, labels], axis=1)
+    # print(df.sample(10))
+    # df.to_csv('./data/directed/node_7/degree_statistical_r_7_modified.csv')
+
+    ## draw correlation graph
+    # from matplotlib.backends.backend_pdf import PdfPages
+    #
+    # # pp = PdfPages('./assets/corr.pdf')
+    # df = pd.read_csv('./data/directed/node_7/degree_statistical_r_7_modified.csv', header=0, index_col=0)
+    # f, ax = plt.subplots(figsize=(18, 18))
+    # sns.heatmap(df.corr(), cmap="YlGnBu", annot=True, linewidths=.5, fmt='.1f', ax=ax)
+    # # pp.savefig()
+    # # pp.close()
+    # plt.show()
+
+    ## draw distibute
+    # df2 = get_degree_info('./data/directed/node_7/', 'r_7.csv', 7, 2).reset_index(drop=True)
+    # plt.subplot(121)
+    # sns.distplot(df2.indegree)
+    #
+    # plt.subplot(122)
+    # sns.distplot(df2.outdegree)
+    # plt.savefig('./assets/distribute')
+    # plt.show()
+
+    ## draw boxplot
+    # print(df2.head(10))
+    # df3 = pd.DataFrame(np.zeros(df2.shape), dtype=np.int8, columns=['label']).reset_index(drop=True)
+    # df = pd.concat([df2, df3], axis=1)
+    # sns.boxplot(x=df.columns[1], y=df.columns[0], data=df)
+    # plt.show()
