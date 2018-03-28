@@ -5,16 +5,16 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 import numpy as np
+import scipy.linalg
 import networkx as nx
 import matplotlib.pyplot as plt
 import random
-import pandas as pd
-import threading
-import time
+import traceback
 
 
 class NetworkAlgo(object):
-    def __init__(self, vertex_num=5, p=0.5, directed=False, network_file=None, vertex_value_file=None, adjMatrix=None, nx_obj=None):
+    def __init__(self, vertex_num=5, p=0.5, directed=False, network_file=None, vertex_value_file=None, adjMatrix=None,
+                 nx_obj=None):
         """ the init constructor
         :param vertex_num: 
         :param network_file: 
@@ -27,15 +27,23 @@ class NetworkAlgo(object):
         """
         self.vertex_num = vertex_num
         self.G = self.init_network(vertex_num, p, directed, network_file, adjMatrix, nx_obj)
-        self.adjMatrix = nx.adjacency_matrix(self.G).todense().view(np.ndarray).astype(np.int8).reshape(self.vertex_num,
-                                                                                        self.vertex_num)
+        self.adjMatrix = nx.adjacency_matrix(self.G)\
+            .todense().view(np.ndarray).astype(np.int8).\
+            reshape(self.vertex_num, self.vertex_num)
+
+        # to be compatible with node2vec
+        # but not consider undirected graph >.<
+        self.set_weights()
 
         self.init_vertex_value(self.G, vertex_value_file)
         self.malicious_node = []
 
+    def set_weights(self):
+        for edge in self.G.edges():
+            self.G[edge[0]][edge[1]]['weight'] = 1
+
     def init_network(self, vertex_num=5, p=0.9, directed=False, file_name=None, adjMatrix=None, nx_obj=None):
-        """ init the network by reading a file
-        
+        """ init the network
         :param file_name: 
                 the first line is the number of vertex
                 the next lines of which the first number is the vertex as 
@@ -48,33 +56,17 @@ class NetworkAlgo(object):
         """
         local_adjMatrix = adjMatrix
         if not file_name:
-            # init by random
-            # local_list = np.random.permutation(vertex_num)
-            # local_adjMatrix = np.zeros([vertex_num, vertex_num], dtype=np.int)
-            #
-            # for index, var in enumerate(local_list):
-            #     if index == vertex_num - 1:
-            #         break
-            #
-            #     kk = np.random.randint(0, 2)  # control the direction of a matrix
-            #     if kk == 0:
-            #         local_adjMatrix[local_list[index]][local_list[index+1]] = 1
-            #     else:
-            #         local_adjMatrix[local_list[index+1]][local_list[index]] = 1
-            #
-            # m = np.random.randint(1, vertex_num*vertex_num*vertex_num)  # control the density of the matrix
-            # for i in range(m):
-            #     p1 = np.random.randint(0, vertex_num)
-            #     p2 = np.random.randint(0, vertex_num)
-            #     while p1 == p2:
-            #         p2 = np.random.randint(0, vertex_num)
-            #     local_adjMatrix[p1][p2] = 1
             if local_adjMatrix is not None:
-                local_G = nx.from_numpy_matrix(local_adjMatrix)
                 if directed:
-                    local_G = local_G.to_directed()
+                    local_G = nx.from_numpy_matrix(local_adjMatrix, create_using=nx.DiGraph())
+                else:
+                    local_G = nx.from_numpy_matrix(local_adjMatrix)
+                    # if directed:
+                    #     local_G = local_G.to_directed()
             elif nx_obj is not None:
                 local_G = nx_obj.copy()
+
+                # if the origin obj is directed, then the directed information is still here?
                 if directed:
                     local_G = local_G.to_directed()
             else:
@@ -135,6 +127,102 @@ class NetworkAlgo(object):
         """
         np.savetxt(out_file, local_adjmatrix)
 
+    def get_in_diagonal_matrix(self, adjmatrix=None, k=0):
+        if adjmatrix is None:
+            return np.diagflat(np.sum(self.adjMatrix, axis=0), k)
+        else:
+            return np.diagflat(np.sum(adjmatrix, axis=0), k)
+
+    def get_out_diagonal_matrix(self, adjmatrix=None, k=0):
+        if adjmatrix is None:
+            return np.diagflat(np.sum(self.adjMatrix, axis=1), k)
+        else:
+            return np.diagflat(np.sum(adjmatrix, axis=1), k)
+
+    def get_laplacian_matrix(self):
+        """
+            for directed matrix, we use A+A^T sym, the we use the standard definition of laplacian
+            for undirected matrix, we use the standard definition of laplacian
+        :return: 
+        """
+        if nx.is_directed(self.G):
+            adjmatrix = self.get_simple_symmetrization_matrix()
+            return adjmatrix - self.get_in_diagonal_matrix(adjmatrix)
+        else:
+            return self.adjMatrix - self.get_in_diagonal_matrix()
+
+    def get_degree_discounted_symmetrization_matrix(self, threshold=None):
+        """ 
+            it will raise error if zero in the diagonal matrix
+        :return: 
+        """
+        if nx.is_directed(self.G):
+
+            # problem with if there exists a node that have no in degrees, oh come on! >.<
+            in_d = np.sqrt(np.linalg.inv(self.get_in_diagonal_matrix()))
+            # problem with if there exists a node that have no out degrees
+            out_d = np.sqrt(np.linalg.inv(self.get_out_diagonal_matrix()))
+
+            d1 = np.dot(np.dot(np.dot(np.dot(out_d, self.adjMatrix), in_d), self.adjMatrix.T), out_d)
+            d2 = np.dot(np.dot(np.dot(np.dot(in_d, self.adjMatrix), out_d), self.adjMatrix.T), in_d)
+            d = d1 + d2
+
+            if threshold is not None and threshold > 0:
+                for i in range(d.shape[0]):
+                    for j in range(d.shape[1]):
+                        if d[i][j] <= threshold:
+                            d[i][j] = 0
+
+            return d
+
+    def get_eigen_vectors(self, sym_func=None, **kwargs):
+        """ 
+            problem with sym_func=self.methods
+        :param sym_func: 
+        :return: 
+        """
+        threshold = kwargs.get('threshold', None)
+        if nx.is_directed(self.G):
+            if sym_func is None:
+                sym_func = self.get_bibliometric_symmetrization_matrix
+            elif sym_func.__name__ == 'get_degree_discounted_symmetrization_matrix':
+                return scipy.linalg.eigh(sym_func(threshold))
+
+            return scipy.linalg.eigh(sym_func())
+
+        else:
+            return scipy.linalg.eigh(self.adjMatrix)
+
+    def get_bibliometric_symmetrization_matrix(self):
+        if nx.is_directed(self.G):
+            return np.dot(self.adjMatrix.T, self.adjMatrix) + \
+                   np.dot(self.adjMatrix, self.adjMatrix.T)
+
+    def get_simple_symmetrization_matrix(self):
+        if nx.is_directed(self.G):
+            return self.adjMatrix + self.adjMatrix.T
+
+    def get_in_degree(self, node_num):
+        """ get in degree of a matrix
+        
+        :param node_num: 
+            can be a list or int
+            example:[0, 1]
+        :return: 
+            can be a list or int
+            [(0, 0), (1, 2)]
+        """
+        if nx.is_directed(self.G):
+            return self.G.in_degree(node_num)
+        else:
+            return self.G.degree(node_num)
+
+    def get_out_degree(self, node_num):
+        if nx.is_directed(self.G):
+            return self.G.out_degree(node_num)
+        else:
+            return self.G.degree(node_num)
+
     def set_malicious_node(self, kwargs):
         for k, v in kwargs.iteritems():
             self.G.node[k]['value'][0] = v
@@ -145,21 +233,32 @@ class NetworkAlgo(object):
         neighbors_value = []
         # for k, v in self.G.in_edges(node):
         for k, v in self.G.edges(node):
-            # print(k, v)
+            # print(k,'=>', v)
             neighbors_value.append(self.G.node[v]['value'][iter_time])
         return neighbors_value
 
-    def show_network(self):
+    def show_network(self, name='out'):
+        """ show network graph
+            - reference:
+                https://stackoverflow.com/questions/21364405/saving-plots-to-pdf-files-using-matplotlib
+        :return: 
+        """
         import time
+        # from matplotlib.backends.backend_pdf import PdfPages
+        # pp = PdfPages('./assets/(2, 6).pdf')
         plt.figure(time.time())
         for v in self.G.nodes():
-            self.G.node[v]['state'] = str(v+1)
+            self.G.node[v]['state'] = str(v + 1)
 
         node_labels = nx.get_node_attributes(self.G, 'state')
         pos = nx.circular_layout(self.G)
         nx.draw_networkx_labels(self.G, pos, labels=node_labels)
         nx.draw(self.G, pos)
-        plt.savefig('./assets/result2.png')
+        # pp.savefig()
+        # pp.close()
+        # plt.savefig('./assets/(2, 6).png')
+
+        plt.show()
         # plt.show(block=False)
         plt.close()
 
@@ -297,4 +396,15 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # main()
+    a = NetworkAlgo(directed=True)
+    print(a.adjMatrix)
+
+    # a.get_indegree_node_value(0, 0)
+    print(a.get_in_diagonal_matrix())
+    print(a.get_out_diagonal_matrix())
+    print(a.get_laplacian_matrix())
+    # print(a.get_degree_discounted_symmetrization_matrix())
+    # m, v = a.get_eigen_vectors(sym_func=a.get_degree_discounted_symmetrization_matrix)
+    # print(m)
+    # print(v)
