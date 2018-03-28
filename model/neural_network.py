@@ -44,6 +44,7 @@ class NeuralNetwork:
         self.loss_name_list = con.loss_name_list
         self.problem_type = con.problem_type_list
         self.class_number_list = con.class_number_list
+        self.classifier = con.classifier
 
         # self.path_to_save_predict = con.path_to_save_predict
 
@@ -52,6 +53,7 @@ class NeuralNetwork:
         self.middle_out = []
         self.out = []
         self.optimizer = []
+
         self.loss = []
         self.acc = []
         self.summ = []
@@ -108,11 +110,22 @@ class NeuralNetwork:
             if regression:
                 loss = tf.reduce_sum(tf.pow(output - target, 2))
             else:
-                loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=output, labels=target))
+
+                if self.classifier[name] == "svm":
+                    # svm
+                    # https://gist.github.com/scturtle/94694fb40fd96e1ee0c2
+                    with tf.name_scope("svm"):
+                        delta = 1.0
+                        y = tf.reduce_sum(output * target, 1, keepdims=True)
+                        loss = tf.reduce_mean(tf.reduce_sum(tf.maximum(0.0, output - y + delta), 1)) - delta
+                else:
+                    # softmax_cross_entropy
+                    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=output, labels=target))
 
             if self.W:
                 with tf.name_scope('weight_decay'):
                     weight_decay = get_reg_loss(self.W, self.b)
+                    # regularization problem with softmax cross entropy with logits!!!
                     loss += self.reg_lambda * weight_decay
 
         return loss
@@ -138,7 +151,7 @@ class NeuralNetwork:
             mean = tf.reduce_mean(var)
             tf.summary.scalar('mean', mean)
             with tf.name_scope('stddev'):
-                stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+                stddev = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(var, mean))))
             tf.summary.scalar('stddev', stddev)
             tf.summary.scalar('max', tf.reduce_max(var))
             tf.summary.scalar('min', tf.reduce_min(var))
@@ -186,6 +199,11 @@ class NeuralNetwork:
 
                 preactivate = tf.matmul(input_tensor, weights) + biases
 
+            # tensorboard draw histogram
+            if 'parameters_summary' in local_struct[layer_name] and local_struct[layer_name]['parameters_summary']:
+                self.variable_summaries(weights, layer_name + '/weights')
+                self.variable_summaries(biases, layer_name + '/biases')
+
             if 'dropout' in local_struct[layer_name] and local_struct[layer_name]['dropout']:
                 preactivate = tf.nn.dropout(preactivate, keep_prob=self.keep_prob, name='dropout')
                 # tf.summary.histogram('pre_activations', preactivate)
@@ -222,6 +240,7 @@ class NeuralNetwork:
                     strides=local_struct[layer_name]['strides'],
                     padding=local_struct[layer_name]['padding']
                 )
+
             if 'dropout' in local_struct[layer_name] and local_struct[layer_name]['dropout']:
                 preactivate = tf.nn.dropout(preactivate, keep_prob=self.keep_prob, name='dropout')
                 # tf.summary.histogram('pre_activations', preactivate)
@@ -236,7 +255,7 @@ class NeuralNetwork:
                     x_max = tf.reduce_max(kernel)
                     kernel_0_to_1 = (kernel - x_min) / (x_max - x_min)
                     kernel_transposed = tf.transpose(kernel_0_to_1, [3, 0, 1, 2])
-                    tf.summary.image(layer_name+'/filters', kernel_transposed)
+                    tf.summary.image(layer_name + '/filters', kernel_transposed)
 
             return activations
 
@@ -577,14 +596,15 @@ class NeuralNetwork:
                         'average %s => %.2f%%' % (self.acc_name_list[index], epoch_acc[index] / number_of_batch * 100))
                     print('test %s => %.2f%%' % (self.acc_name_list[index], test_acc[index] * 100))
 
-
                 # drawing confusion matrix
-                # if (k + 1) % 10 == 0:
-                #     # print('-' * 75)
-                #     feed_dict = {self.input: test_X, self.target: test_Y, self.keep_prob: 1}
-                #     epoch_out = self.sess.run(self.out, feed_dict=feed_dict)
-                #     input_data.get_confusion_matrix(epoch_out)
-                #     # print('-' * 75)
+                # if (k + 1)%250 == 0:
+                if (k + 1) % 100 == 0:
+                    # print('-' * 75)
+                    feed_dict = {self.input: test_X, self.target: test_Y, self.keep_prob: 1}
+                    epoch_out = self.sess.run(self.out, feed_dict=feed_dict)
+                    # input_data.get_classify_confusion_matrix(epoch_out, self.class_number_list)
+                    input_data.get_confusion_matrix(epoch_out, self.problem_type[0])
+                    # print('-' * 75)
 
                 print()
 
@@ -606,6 +626,7 @@ class NeuralNetwork:
 
 
 if __name__ == '__main__':
+
     con = config.Config()
     data = data_processing.DataGenerator(con)
     model = NeuralNetwork(con)
