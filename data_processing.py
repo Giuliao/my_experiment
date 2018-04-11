@@ -12,21 +12,31 @@ from model import config
 import consensus_algo
 import matplotlib
 import os
-
 # https://stackoverflow.com/questions/37604289/
 # tkinter-tclerror-no-display-name-and-no-display-environment-variable
-matplotlib.use('Agg')
+# import platform
+#
+# if platform.system() == 'Linux':
+#     matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 
 class DataGenerator:
-    def __init__(self, con):
+    def __init__(self, con, random_sample=True):
+        """ constructor
+        :param con: 
+            config object, all hyper parameters are wrote in it.
+        :param random_sample: 
+            switch of keeping data ordered or sampled.
+        """
         self.file_name_list = con.file_name_list
         self.dir_path = con.dir_path
         self.n_classes = con.n_classes
+        # determine the fold of train and test data.
         self.test_data_ratio = con.test_data_ratio
 
+        # data partition
         self.origin_df = None
         self.valid_X = None
         self.valid_Y = None
@@ -34,7 +44,7 @@ class DataGenerator:
         self.train_Y = None
         self.test_X = None
         self.test_Y = None
-        self.read_from_csv_list()
+        self.read_from_csv_list(random_sample)
 
         self.total_data_num = self.valid_X.shape[0]
         self.total_train = self.train_X.shape[0]
@@ -44,12 +54,12 @@ class DataGenerator:
 
         print('=> data init finished')
 
-    def read_from_csv_list(self):
+    def read_from_csv_list(self, random_sample):
         """ init data from a csv file
         :return: 
         """
         pd_ll = []
-        for local_file in map(lambda x: self.dir_path+x, self.file_name_list):
+        for local_file in map(lambda x: self.dir_path + x, self.file_name_list):
             pd_ll.append(pd.read_csv(local_file, header=0, index_col=0))
 
         # note: the data maybe already sampled because of the preprocess step
@@ -61,14 +71,27 @@ class DataGenerator:
 
         self.valid_X = self.origin_df.iloc[:, : -self.n_classes].reset_index(drop=True)
         self.valid_Y = self.origin_df.iloc[:, -self.n_classes:].reset_index(drop=True)
-        self.train_X, self.test_X, self.train_Y, self.test_Y = train_test_split(
-            self.valid_X, self.valid_Y, test_size=self.test_data_ratio
-        )
+        if random_sample:
+            self.train_X, self.test_X, self.train_Y, self.test_Y = train_test_split(
+                self.valid_X, self.valid_Y, test_size=self.test_data_ratio
+            )
+        else:
+            self.test_X, self.test_Y = (
+                self.valid_X.iloc[-int(self.valid_X.shape[0] * self.test_data_ratio):, :],
+                self.valid_Y.iloc[-int(self.valid_Y.shape[0] * self.test_data_ratio):, :]
+            )
+
+            self.train_X, self.train_Y = (
+                self.valid_X.iloc[:-int(self.valid_X.shape[0] * self.test_data_ratio), :],
+                self.valid_Y.iloc[:-int(self.valid_Y.shape[0] * self.test_data_ratio), :]
+            )
 
         print('=> train data size:', self.train_X.shape[0])
-        print('=> test data size:', self.test_X.shape[0])
         print(self.train_X.head())
         print(self.train_Y.head())
+        print('=> test data size:', self.test_X.shape[0])
+        print(self.test_X.head())
+        print(self.test_Y.head())
 
     def get_cross_valid_data_set(self, fold=10):
         """ cross valid
@@ -76,34 +99,41 @@ class DataGenerator:
         :param fold: 
         :return: 
         """
-        if not os.path.exists(self.dir_path+'cv/'):
-            os.mkdir(self.dir_path+'cv/')
+        if not os.path.exists(self.dir_path + 'cv/'):
+            os.mkdir(self.dir_path + 'cv/')
 
         df = self.origin_df.sample(frac=1).reset_index(drop=True)
         total_len = df.shape[0]
         stride = total_len - total_len // fold
-
         count = 0
         i = 0
         while True:
             print('-' * 75)
             if i + stride > total_len:
-                t = pd.concat([df.iloc[i:, :], df.iloc[:stride - (total_len - i)]], axis=0)
-                count += 1
+                t = pd.concat([df.iloc[i:, :], df.iloc[:stride - (total_len - i), :]], axis=0)
+                test = df.iloc[stride - (total_len - i): i, :]
                 i = stride - (total_len - i)
+                count += 1
 
             else:
                 t = df.iloc[i: i + stride, :]
+                test = pd.concat([df.iloc[:i, :], df.iloc[i + stride:, :]], axis=0)
                 count += 1
                 i += stride
 
             print('=> count', count)
-            print('=> size', t.shape[0])
+            print('=> train', t.shape[0])
             print(t.head())
             print(t.tail())
-            t.to_csv(self.dir_path + 'cv/{}_fold_cv_data_{}'.format(fold, count))
-            print('=>', self.dir_path + 'cv/{}_fold_cv_data_{}'.format(fold, count))
 
+            print('=> test', test.shape[0])
+            print(test.head())
+            print(test.tail())
+
+            # pd.concat([t, test], axis=0).to_csv(self.dir_path + 'cv/{}_fold_cv_data_{}'.format(fold, count))
+            # print('=>', self.dir_path + 'cv/{}_fold_cv_data_{}'.format(fold, count))
+            del t
+            del test
             if count == fold:
                 break
 
@@ -112,6 +142,7 @@ class DataGenerator:
         :param batch_size: 
         :return:  
         """
+
         for i in range(0, self.total_train, batch_size):
             yield self.train_X.iloc[i: i + batch_size, :], self.train_Y.iloc[i: i + batch_size, :]
 
@@ -136,7 +167,7 @@ class DataGenerator:
         for x, y in self.get_origin_data(1):
             m = x.values.reshape((self.node_num, self.node_num))
             data = consensus_algo.NetworkAlgo(adjMatrix=m, directed=True)
-            e, v = data.get_eigen_vectors(sym_func=data.get_laplacian_matrix)
+            e, v = data.get_eigen_vectors(sym_func=data.get_laplacian_matrix, generalized_eigen=True)
             # why the type must be np.float32, i forgot >.<
             yield v.astype(np.float32), m, y
 
@@ -145,10 +176,19 @@ class DataGenerator:
         :param predict: 
         :return: 
         """
+
         upper_bound = self.node_num // 2 if self.node_num % 2 == 0 else self.node_num // 2 + 1
         labels = [str((k, j)) for k in range(1, upper_bound + 1) for j in range(1, self.node_num + 1)]
-        values = np.zeros((self.node_num * upper_bound, self.node_num * upper_bound)).astype(np.uint32)
+        r_labels = [str(k) for k in range(1, upper_bound + 1)]
+        s_labels = [str(k) for k in range(1, self.node_num + 1)]
+
+        values = np.zeros((self.node_num * upper_bound, self.node_num * upper_bound)).astype(np.int)
+        r_values = np.zeros((upper_bound, upper_bound)).astype(np.int)
+        s_values = np.zeros((self.node_num, self.node_num)).astype(np.int)
+
         df = pd.DataFrame(values, columns=labels, index=labels)
+        r_df = pd.DataFrame(r_values, columns=r_labels, index=r_labels)
+        s_df = pd.DataFrame(s_values, columns=s_labels, index=s_labels)
 
         for i in range(len(predict[0])):
             x = np.argmax(predict[0][i]) + 1
@@ -160,12 +200,22 @@ class DataGenerator:
             idx_predict = str('({}, {})'.format(x, y))
             idx_real = str('({}, {})'.format(r, s))
             df[idx_predict][idx_real] += 1
+            r_df[str(x)][str(r)] += 1
+            s_df[str(y)][str(s)] += 1
 
-        f, ax = plt.subplots(figsize=(15, 15))
-        # https://seaborn.pydata.org/generated/seaborn.heatmap.html
-        sns.heatmap(df, cmap="YlGnBu", annot=True, fmt='d', ax=ax)
-        plt.savefig('./assets/confusion_matrix')
-        plt.close()
+        # f, ax = plt.subplots(figsize=(15, 15))
+        # # https://seaborn.pydata.org/generated/seaborn.heatmap.html
+        # sns.heatmap(df, cmap="YlGnBu", annot=True, fmt='d', ax=ax)
+        # plt.savefig('./assets/{}_confusion_matrix'.format(self.node_num))
+        # f, ax = plt.subplots(figsize=(15, 15))
+        # sns.heatmap(r_df, cmap="YlGnBu", annot=True, fmt='d', ax=ax)
+        # plt.savefig('./assets/{}_r_confusion_matrix'.format(self.node_num))
+        # f, ax = plt.subplots(figsize=(15, 15))
+        # sns.heatmap(s_df, cmap="YlGnBu", annot=True, fmt='d', ax=ax)
+        # plt.savefig('./assets/{}_s_confusion_matrix'.format(self.node_num))
+        #
+        # plt.close()
+        return r_df, s_df, df
 
     def get_regression_confusion_matrix(self, predict):
         """ confusion matrix for regression problem
@@ -174,8 +224,16 @@ class DataGenerator:
         """
         upper_bound = self.node_num // 2 if self.node_num % 2 == 0 else self.node_num // 2 + 1
         labels = [str((k, j)) for k in range(1, upper_bound + 1) for j in range(1, self.node_num + 1)]
+        r_labels = [str(k) for k in range(1, upper_bound + 1)]
+        s_labels = [str(k) for k in range(1, self.node_num + 1)]
+
         values = np.zeros((self.node_num * upper_bound, self.node_num * upper_bound)).astype(np.uint32)
+        r_values = np.zeros((upper_bound, upper_bound)).astype(np.int)
+        s_values = np.zeros((self.node_num, self.node_num)).astype(np.int)
+
         df = pd.DataFrame(values, columns=labels, index=labels)
+        r_df = pd.DataFrame(r_values, columns=r_labels, index=r_labels)
+        s_df = pd.DataFrame(s_values, columns=s_labels, index=s_labels)
 
         for i in range(len(predict[0])):
             x = predict[0][i]
@@ -193,17 +251,42 @@ class DataGenerator:
             idx_predict = str('({}, {})'.format(x, y))
             idx_real = str('({}, {})'.format(r, s))
             df[idx_predict][idx_real] += 1
+            r_df[str(x)][str(r)] += 1
+            s_df[str(y)][str(s)] += 1
 
-        f, ax = plt.subplots(figsize=(15, 15))
-        sns.heatmap(df, cmap="YlGnBu", annot=True, fmt='d', ax=ax)
-        plt.savefig('./assets/confusion_matrix')
-        plt.close()
+        # f, ax = plt.subplots(figsize=(15, 15))
+        # sns.heatmap(df, cmap="YlGnBu", annot=True, fmt='d', ax=ax)
+        # plt.savefig('./assets/{}_confusion_matrix'.format(self.node_num))
+        # plt.close()
+        return r_df, s_df, df
 
     def get_confusion_matrix(self, predict, problem_type):
         if problem_type:
-            self.get_regression_confusion_matrix(predict)
+            return self.get_regression_confusion_matrix(predict)
         else:
-            self.get_classify_confusion_matrix(predict)
+            return self.get_classify_confusion_matrix(predict)
+
+
+def get_f1_measure(confusion_matrix):
+    f1_list = []
+    for i in range(confusion_matrix.shape[0]):
+        precision = 0.0
+        recall = 0.0
+
+        for j in range(confusion_matrix.shape[0]):
+            precision += confusion_matrix[j][i]
+            recall += confusion_matrix[i][j]
+
+        # a bug that numpy will change zerodivision to warning and make it nan
+        # f1 = 2 * precision * recall / (precision + recall)
+        # https://stackoverflow.com/questions/26248654/
+        # numpy-return-0-with-divide-by-zero?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
+        precision = np.divide(confusion_matrix[i][i], precision, where=precision!=0)
+        recall = np.divide(confusion_matrix[i][i], recall, where=recall!=0)
+        f1 = np.divide(2 * precision * recall, precision + recall, where=(precision + recall) != 0)
+        f1_list.append(f1)
+
+    return np.mean(f1_list)
 
 
 def get_visualization(H, shape=None):
@@ -358,7 +441,8 @@ def get_cluster_info(dir_path, file_name, node_num, K):
 
 def get_node2vec_vectors(dir_path, file_name, node_num):
     con = config.Config()
-    con.file_name_list = [dir_path + file_name]
+    con.dir_path = dir_path
+    con.file_name_list = [file_name]
     con.node_num = node_num
     data = DataGenerator(con)
 
@@ -415,7 +499,8 @@ def get_eigen_vectors(dir_path, file_name, node_num):
 
     # read the data generator class
     con = config.Config()
-    con.file_name_list = [dir_path + file_name]
+    con.file_name_list = [file_name]
+    con.dir_path = dir_path
     con.node_num = node_num
     data = DataGenerator(con)
 
@@ -441,12 +526,11 @@ def get_eigen_vectors(dir_path, file_name, node_num):
 
         count += 1
 
-        if count % 1000 == 0:
-            print(df.head(10))
     print('=> eigenvector data:')
     print(df.sample(100))
     df.to_csv(dir_path + "eigenvector_" + file_name)
     print('=> save finished:', dir_path + "eigenvector_" + file_name)
+    return "eigenvector_" + file_name
 
 
 def learning_vector_quantization_cluster_for_eigenvectors(dir_path, file_name, node_num, yita):
@@ -590,7 +674,7 @@ def k_means_cluster_for_eigenvectors(dir_path, file_name, K, class_number):
 
     print('=> finished time', time.time() - start_time)
 
-    return K
+    return 'k_means_cluster_' + file_name
 
 
 def get_shift_mat(m, new_label):
@@ -651,13 +735,16 @@ def highlight_out_edge(m, new_label, theta=5):
     return m
 
 
-def get_matrix_data_with_channel():
-    """ cluster the adjacent matrix 
-    3 different k clusters of co-cluster matrix as 3 channels of a image 
+def get_matrix_data_with_channel(dir_path, file_name, node_num):
+    """ cluster the adjacent matrix
+            3 different k clusters of co-cluster matrix as 3 channels of a image 
     :return: 
     """
     import time
     con = config.Config()
+    con.dir_path = dir_path
+    con.file_name_list = [file_name]
+    con.node_num = node_num
     digits = DataGenerator(con)
 
     columns = [str(_) for _ in range(3 * (digits.node_num ** 2))]
@@ -665,34 +752,35 @@ def get_matrix_data_with_channel():
     df = pd.DataFrame(columns=columns)
     start = time.time()
     for data, m, y in digits.get_eigenvectors():
-        data = preprocessing.scale(data)
+        # data = preprocessing.scale(data)
         # print(data)
-        kmeans = KMeans(n_clusters=4, random_state=0).fit(data.T)
+        kmeans = KMeans(n_clusters=3, random_state=0).fit(data)
         new_label = kmeans.labels_
         # print(new_label)
         H1 = get_shift_mat(get_shift_mat(m, new_label).T, new_label).T
         highlight_out_edge(H1, new_label)
 
-        kmeans = KMeans(n_clusters=3, random_state=0).fit(data.T)
+        kmeans = KMeans(n_clusters=4, random_state=0).fit(data)
         new_label = kmeans.labels_
         # print(new_label)
         H2 = get_shift_mat(get_shift_mat(m, new_label).T, new_label).T
         highlight_out_edge(H2, new_label)
 
-        kmeans = KMeans(n_clusters=5, random_state=0).fit(data.T)
-        new_label = kmeans.labels_
-        # print(new_label)
-        H3 = get_shift_mat(get_shift_mat(m, new_label).T, new_label).T
-        highlight_out_edge(H3, new_label)
+        # kmeans = KMeans(n_clusters=5, random_state=0).fit(data)
+        # new_label = kmeans.labels_
+        # # print(new_label)
+        # H3 = get_shift_mat(get_shift_mat(m, new_label).T, new_label).T
+        # highlight_out_edge(H3, new_label)
 
-        H = np.hstack((H1.reshape(1, -1), H2.reshape(1, -1), H3.reshape(1, -1)))
+        H = np.hstack((m.reshape(1, -1), H1.reshape(1, -1), H2.reshape(1, -1)))
         # print(H.shape)
         df = df.append(pd.DataFrame(np.hstack((H, y.values)), columns=columns))
         # print(df.head())
-    df.to_csv('./data/directed/node_7/c_453_h_r_7_modified.csv')
+    df.to_csv(dir_path + 'cluster_034_aug_outlier_' + file_name)
     print(df.head())
     df.info()
     print('finished, time used:', time.time() - start)
+    return 'cluster_345_aug_outlier_' + file_name
 
 
 def get_image_data():
@@ -844,6 +932,7 @@ def pipeline_all_preprocess_data(dir_path, origin_file_name, cluster_file_name, 
     print('=> save finished:', dir_path + 'features_' + cluster_file_name)
 
     print('=> finished time', time.time() - start_time)
+    return 'features_' + cluster_file_name
 
 
 def in_degree_count(adj_matrix):
@@ -913,14 +1002,50 @@ def draw_bar(dir_path, file_name, node_num):
 
 
 if __name__ == '__main__':
-    con = config.Config()
-    data = DataGenerator(con)
-    data.get_cross_valid_data_set()
-    # get_eigen_vectors('./data/directed/node_7/', 'r_7_modified.csv', 7)
-    # k_means_cluster_for_eigenvectors('./data/directed/node_7/', 'eigenvector_r_7_modified.csv', 7, 2)
+    # con = config.Config()
+    # data = DataGenerator(con, False)
 
-    # pipeline_all_preprocess_data('./data/directed/node_7/', 'r_7_modified.csv',
-    #                              'k_means_cluster_eigenvector_r_7_modified.csv', 7, 2)
+    pass
+    # import train_data_generate
+    #
+    # for i in range(5, 11):
+    #     node_num = i
+    #     dir_path = './data/directed/node_{}/'.format(node_num)
+    #     file_name = 'r_{}_modified.csv'.format(node_num)
+    #     class_number = 2
+    #     new_r = 5
+    #     new_s = 10
+
+    # # generate data includes extracted features
+    # new_file_name = get_eigen_vectors(
+    #     dir_path,
+    #     file_name,
+    #     node_num
+    # )
+    # new_file_name = k_means_cluster_for_eigenvectors(
+    #     dir_path,
+    #     new_file_name,
+    #     node_num,
+    #     class_number
+    # )
+    #
+    # new_file_name = pipeline_all_preprocess_data(
+    #     dir_path,
+    #     file_name,
+    #     new_file_name,
+    #     node_num,
+    #     class_number
+    # )
+    #
+
+    # new_file_name = get_matrix_data_with_channel(dir_path, file_name, node_num)
+    # train_data_generate.set_r_s_to_one_hot(
+    #     dir_path,
+    #     file_name,
+    #     new_r,
+    #     new_s
+    # )
+
 
     # draw_bar('./data/directed/', ['node_5/r_5.csv', 'node_6/r_6.csv', 'node_7/r_7.csv'], [5, 6, 7])
 
